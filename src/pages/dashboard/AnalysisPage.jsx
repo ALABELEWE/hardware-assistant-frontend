@@ -29,25 +29,21 @@ function InsightCard({ title, items, color }) {
 function AnalysisResult({ data }) {
   return (
     <div className="flex flex-col gap-4 mt-6">
-      {/* Summary */}
       <div className="bg-white rounded-xl border p-6">
         <h3 className="font-semibold text-gray-800 mb-2">📋 Business Summary</h3>
         <p className="text-gray-600 text-sm leading-relaxed">{data.summary}</p>
       </div>
 
-      {/* Revenue Potential */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white">
         <p className="text-blue-200 text-sm font-medium mb-1">💰 Estimated Monthly Revenue Potential</p>
         <p className="text-3xl font-bold">{data.estimatedMonthlyRevenuePotential || 'Not estimated'}</p>
       </div>
 
-      {/* Grid: Strengths + Weaknesses */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <InsightCard title="✅ Strengths" items={data.strengths} color="green" />
         <InsightCard title="⚠️ Weaknesses" items={data.weaknesses} color="red" />
       </div>
 
-      {/* Recommendations */}
       <div className="bg-white rounded-xl border p-5">
         <h3 className="font-semibold text-gray-800 mb-3">🎯 Recommendations</h3>
         <ol className="flex flex-col gap-2">
@@ -62,12 +58,10 @@ function AnalysisResult({ data }) {
         </ol>
       </div>
 
-      {/* Market Opportunities */}
       {data.marketOpportunities?.length > 0 && (
         <InsightCard title="🚀 Market Opportunities" items={data.marketOpportunities} color="yellow" />
       )}
 
-      {/* SMS Alert Preview */}
       {data.smsAlert && (
         <div className="bg-gray-800 rounded-xl p-5 text-white">
           <p className="text-gray-400 text-xs mb-2 font-medium uppercase tracking-wide">📱 SMS Alert Preview</p>
@@ -105,9 +99,9 @@ export default function AnalysisPage() {
     setAnalysis(null);
     try {
       const res = await analysisApi.generate(sendSms);
-      const parsed = JSON.parse(res.data.data.aiResponseJson);
+      const parsed = res.data.data.analysis;
       setAnalysis(parsed);
-      loadHistory(); // Refresh history after new analysis
+      loadHistory();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to generate analysis. Make sure your profile is complete.');
     } finally {
@@ -124,7 +118,6 @@ export default function AnalysisPage() {
         </p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
         {['generate', 'history'].map((tab) => (
           <button
@@ -138,7 +131,6 @@ export default function AnalysisPage() {
         ))}
       </div>
 
-      {/* Generate Tab */}
       {activeTab === 'generate' && (
         <div>
           <div className="bg-white rounded-2xl border p-6">
@@ -175,7 +167,7 @@ export default function AnalysisPage() {
           {loading && (
             <div className="mt-8 flex flex-col items-center gap-3 text-gray-400">
               <LoadingSpinner size="lg" />
-              <p className="text-sm">Claude AI is analyzing your business...</p>
+              <p className="text-sm">AI is analyzing your business...</p>
             </div>
           )}
 
@@ -183,7 +175,6 @@ export default function AnalysisPage() {
         </div>
       )}
 
-      {/* History Tab */}
       {activeTab === 'history' && (
         <div className="flex flex-col gap-3">
           {history.length === 0 ? (
@@ -194,8 +185,7 @@ export default function AnalysisPage() {
             </div>
           ) : (
             history.map((item) => {
-              let parsed = null;
-              try { parsed = JSON.parse(item.aiResponseJson); } catch {}
+              const parsed = item.analysis || null;
               return (
                 <div key={item.id} className="bg-white rounded-xl border p-5">
                   <div className="flex items-start justify-between mb-3">
