@@ -1,0 +1,2928 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# env files
+.env.local
+.env.*.local
+
+AI-powered hardware business assistant build guideYou are a senior full-stack software architect and DevOps-aware startup CTO.
+
+Your task is to guide me step-by-step to build a production-ready SaaS web application called:
+
+AI-Powered Hardware Business Assistant
+
+This system must be architected for:
+- Real early-stage users
+- Clean collaborpasted5:53 PMAI-Powered Hardware Business Assistant — Full Build Guide
+I'll act as your technical co-founder. Let's build this systematically. I'll cover everything end-to-end, with copy-paste-ready code.
+
+PART 1: SYSTEM ARCHITECTURE OVERVIEW
+How the System Fits Together
+┌─────────────────────────────────────────────────────────┐
+│                    CLIENT LAYER                          │
+│  React (Vite) + Tailwind → Vercel CDN                   │
+│  .env.local / .env.production → dynamic API base URL    │
+└────────────────────┬────────────────────────────────────┘
+                     │ HTTPS + JWT Bearer Token
+┌────────────────────▼────────────────────────────────────┐
+│                   BACKEND LAYER                          │
+│  Spring Boot 3 (Java 17) → Railway/Render               │
+│  Spring Security → JWT Filter → Role-Based Access       │
+│  REST Controllers → Services → Repositories             │
+└──────┬──────────┬────────────┬───────────────┬──────────┘
+       │          │            │               │
+  PostgreSQL  Claude API  Africa's Talking   Paystack/Stripe
+  (Managed)  (AI Insights)  (SMS)           (Payments)
+Environment Strategy
+EnvironmentBackendFrontendDBlocallocalhost:8080localhost:5173Local PostgreSQLdevRailway dev serviceVercel previewRailway dev DBstagingRailway stagingVercel stagingRailway staging DBprodRailway prodVercel prodRailway prod DB
+
+PART 2: BACKEND
+Step 1 — Folder Structure
+hardware-assistant-backend/
+├── src/
+│   ├── main/
+│   │   ├── java/com/hardwareassistant/
+│   │   │   ├── HardwareAssistantApplication.java
+│   │   │   ├── config/
+│   │   │   │   ├── SecurityConfig.java
+│   │   │   │   ├── JwtConfig.java
+│   │   │   │   └── CorsConfig.java
+│   │   │   ├── controller/
+│   │   │   │   ├── AuthController.java
+│   │   │   │   ├── MerchantController.java
+│   │   │   │   ├── AnalysisController.java
+│   │   │   │   ├── AdminController.java
+│   │   │   │   └── WebhookController.java
+│   │   │   ├── dto/
+│   │   │   │   ├── request/
+│   │   │   │   │   ├── LoginRequest.java
+│   │   │   │   │   ├── RegisterRequest.java
+│   │   │   │   │   └── MerchantProfileRequest.java
+│   │   │   │   └── response/
+│   │   │   │       ├── AuthResponse.java
+│   │   │   │       ├── ApiResponse.java
+│   │   │   │       └── AnalysisResponse.java
+│   │   │   ├── entity/
+│   │   │   │   ├── User.java
+│   │   │   │   ├── MerchantProfile.java
+│   │   │   │   ├── BusinessAnalysis.java
+│   │   │   │   ├── SmsLog.java
+│   │   │   │   └── Subscription.java
+│   │   │   ├── exception/
+│   │   │   │   ├── GlobalExceptionHandler.java
+│   │   │   │   ├── ResourceNotFoundException.java
+│   │   │   │   └── BusinessException.java
+│   │   │   ├── filter/
+│   │   │   │   └── JwtAuthenticationFilter.java
+│   │   │   ├── repository/
+│   │   │   │   ├── UserRepository.java
+│   │   │   │   ├── MerchantProfileRepository.java
+│   │   │   │   ├── BusinessAnalysisRepository.java
+│   │   │   │   ├── SmsLogRepository.java
+│   │   │   │   └── SubscriptionRepository.java
+│   │   │   ├── service/
+│   │   │   │   ├── AuthService.java
+│   │   │   │   ├── MerchantService.java
+│   │   │   │   ├── AnalysisService.java
+│   │   │   │   ├── AiService.java
+│   │   │   │   ├── SmsService.java
+│   │   │   │   ├── PaymentService.java
+│   │   │   │   └── AdminService.java
+│   │   │   └── util/
+│   │   │       ├── JwtUtil.java
+│   │   │       └── SecurityUtils.java
+│   │   └── resources/
+│   │       ├── application.yml
+│   │       ├── application-local.yml
+│   │       ├── application-dev.yml
+│   │       ├── application-staging.yml
+│   │       ├── application-prod.yml
+│   │       └── db/migration/
+│   │           ├── V1__create_users.sql
+│   │           ├── V2__create_merchant_profiles.sql
+│   │           ├── V3__create_business_analyses.sql
+│   │           ├── V4__create_sms_logs.sql
+│   │           └── V5__create_subscriptions.sql
+├── pom.xml
+├── Dockerfile
+└── .github/workflows/backend-ci.yml
+
+Step 2 — pom.xml
+xml<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.0</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.hardwareassistant</groupId>
+    <artifactId>hardware-assistant-backend</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>hardware-assistant-backend</name>
+
+    <properties>
+        <java.version>17</java.version>
+        <jjwt.version>0.11.5</jjwt.version>
+    </properties>
+
+    <dependencies>
+        <!-- Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Security -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Data JPA -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Validation -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- PostgreSQL -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Flyway -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+        <!-- JWT -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- HTTP Client for AI/SMS -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- Actuator -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+
+Step 3 — Application Configuration Files
+application.yml (base config, no secrets)
+yamlspring:
+  application:
+    name: hardware-assistant-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-ms: 86400000  # 24 hours
+  ai:
+    anthropic-api-key: ${ANTHROPIC_API_KEY}
+    model: claude-3-5-sonnet-20241022
+  sms:
+    africastalking-api-key: ${AT_API_KEY}
+    africastalking-username: ${AT_USERNAME}
+  payment:
+    paystack-secret-key: ${PAYSTACK_SECRET_KEY}
+    paystack-webhook-secret: ${PAYSTACK_WEBHOOK_SECRET}
+application-local.yml
+yamlspring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/hardware_assistant_local
+    username: postgres
+    password: postgres
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.hardwareassistant: DEBUG
+    org.springframework.security: DEBUG
+
+server:
+  port: 8080
+application-dev.yml
+yamlspring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.hardwareassistant: DEBUG
+
+server:
+  port: ${PORT:8080}
+application-staging.yml
+yamlspring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    com.hardwareassistant: INFO
+
+server:
+  port: ${PORT:8080}
+application-prod.yml
+yamlspring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    com.hardwareassistant: WARN
+    root: ERROR
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+Step 4 — Flyway Migrations
+V1__create_users.sql
+sqlCREATE TYPE user_role AS ENUM ('MERCHANT', 'ADMIN');
+
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role user_role NOT NULL DEFAULT 'MERCHANT',
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+V2__create_merchant_profiles.sql
+sqlCREATE TABLE merchant_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    business_name VARCHAR(255) NOT NULL,
+    location VARCHAR(255),
+    customer_type VARCHAR(100),
+    phone_number VARCHAR(20),
+    products TEXT,
+    price_range VARCHAR(100),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+V3__create_business_analyses.sql
+sqlCREATE TABLE business_analyses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    merchant_profile_id UUID NOT NULL REFERENCES merchant_profiles(id) ON DELETE CASCADE,
+    ai_response_json TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+V4__create_sms_logs.sql
+sqlCREATE TYPE sms_status AS ENUM ('SENT', 'FAILED', 'PENDING');
+
+CREATE TABLE sms_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    merchant_profile_id UUID REFERENCES merchant_profiles(id),
+    phone_number VARCHAR(20) NOT NULL,
+    message TEXT NOT NULL,
+    status sms_status NOT NULL DEFAULT 'PENDING',
+    sent_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+V5__create_subscriptions.sql
+sqlCREATE TYPE subscription_status AS ENUM ('ACTIVE', 'INACTIVE', 'CANCELLED', 'EXPIRED');
+
+CREATE TABLE subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plan_name VARCHAR(100) NOT NULL,
+    status subscription_status NOT NULL DEFAULT 'INACTIVE',
+    payment_provider_id VARCHAR(255),
+    renewal_date TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+Step 5 — Entity Classes
+User.java
+javapackage com.hardwareassistant.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+@Entity
+@Table(name = "users")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class User implements UserDetails {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "user_role", nullable = false)
+    private Role role;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private MerchantProfile merchantProfile;
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+    }
+
+    @Override public String getUsername() { return email; }
+    @Override public boolean isAccountNonExpired() { return true; }
+    @Override public boolean isAccountNonLocked() { return true; }
+    @Override public boolean isCredentialsNonExpired() { return true; }
+
+    public enum Role { MERCHANT, ADMIN }
+}
+MerchantProfile.java
+javapackage com.hardwareassistant.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@Entity
+@Table(name = "merchant_profiles")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class MerchantProfile {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
+
+    @Column(nullable = false)
+    private String businessName;
+
+    private String location;
+    private String customerType;
+    private String phoneNumber;
+
+    @Column(columnDefinition = "TEXT")
+    private String products;
+
+    private String priceRange;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() { createdAt = LocalDateTime.now(); }
+
+    @OneToMany(mappedBy = "merchantProfile", cascade = CascadeType.ALL)
+    private List<BusinessAnalysis> analyses;
+}
+BusinessAnalysis.java
+javapackage com.hardwareassistant.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "business_analyses")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class BusinessAnalysis {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "merchant_profile_id", nullable = false)
+    private MerchantProfile merchantProfile;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String aiResponseJson;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() { createdAt = LocalDateTime.now(); }
+}
+SmsLog.java
+javapackage com.hardwareassistant.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "sms_logs")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class SmsLog {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "merchant_profile_id")
+    private MerchantProfile merchantProfile;
+
+    @Column(nullable = false)
+    private String phoneNumber;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String message;
+
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "sms_status")
+    private SmsStatus status;
+
+    @Column(nullable = false)
+    private LocalDateTime sentAt;
+
+    @PrePersist
+    protected void onCreate() { sentAt = LocalDateTime.now(); }
+
+    public enum SmsStatus { SENT, FAILED, PENDING }
+}
+Subscription.java
+javapackage com.hardwareassistant.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "subscriptions")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Subscription {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(nullable = false)
+    private String planName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "subscription_status")
+    private SubscriptionStatus status;
+
+    private String paymentProviderId;
+    private LocalDateTime renewalDate;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() { createdAt = LocalDateTime.now(); }
+
+    public enum SubscriptionStatus { ACTIVE, INACTIVE, CANCELLED, EXPIRED }
+}
+
+Step 6 — Repositories
+java// UserRepository.java
+package com.hardwareassistant.repository;
+
+import com.hardwareassistant.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface UserRepository extends JpaRepository<User, UUID> {
+    Optional<User> findByEmail(String email);
+    boolean existsByEmail(String email);
+}
+java// MerchantProfileRepository.java
+package com.hardwareassistant.repository;
+
+import com.hardwareassistant.entity.MerchantProfile;
+import com.hardwareassistant.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface MerchantProfileRepository extends JpaRepository<MerchantProfile, UUID> {
+    Optional<MerchantProfile> findByUser(User user);
+    Optional<MerchantProfile> findByUserId(UUID userId);
+}
+java// BusinessAnalysisRepository.java
+package com.hardwareassistant.repository;
+
+import com.hardwareassistant.entity.BusinessAnalysis;
+import com.hardwareassistant.entity.MerchantProfile;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.UUID;
+
+public interface BusinessAnalysisRepository extends JpaRepository<BusinessAnalysis, UUID> {
+    Page<BusinessAnalysis> findByMerchantProfileOrderByCreatedAtDesc(MerchantProfile profile, Pageable pageable);
+    long countByMerchantProfile(MerchantProfile profile);
+}
+java// SmsLogRepository.java
+package com.hardwareassistant.repository;
+
+import com.hardwareassistant.entity.SmsLog;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+import java.util.UUID;
+
+public interface SmsLogRepository extends JpaRepository<SmsLog, UUID> {
+    List<SmsLog> findByMerchantProfileIdOrderBySentAtDesc(UUID merchantProfileId);
+}
+java// SubscriptionRepository.java
+package com.hardwareassistant.repository;
+
+import com.hardwareassistant.entity.Subscription;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface SubscriptionRepository extends JpaRepository<Subscription, UUID> {
+    Optional<Subscription> findByUserId(UUID userId);
+    Optional<Subscription> findByPaymentProviderId(String paymentProviderId);
+}
+
+Step 7 — DTOs
+java// RegisterRequest.java
+package com.hardwareassistant.dto.request;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+
+@Data
+public class RegisterRequest {
+    @Email @NotBlank
+    private String email;
+
+    @NotBlank @Size(min = 8, message = "Password must be at least 8 characters")
+    private String password;
+}
+java// LoginRequest.java
+package com.hardwareassistant.dto.request;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
+
+@Data
+public class LoginRequest {
+    @Email @NotBlank
+    private String email;
+    @NotBlank
+    private String password;
+}
+java// MerchantProfileRequest.java
+package com.hardwareassistant.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
+
+@Data
+public class MerchantProfileRequest {
+    @NotBlank private String businessName;
+    private String location;
+    private String customerType;
+    private String phoneNumber;
+    private String products;
+    private String priceRange;
+}
+java// AuthResponse.java
+package com.hardwareassistant.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data @AllArgsConstructor
+public class AuthResponse {
+    private String token;
+    private String email;
+    private String role;
+}
+java// ApiResponse.java
+package com.hardwareassistant.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data @AllArgsConstructor
+public class ApiResponse<T> {
+    private boolean success;
+    private String message;
+    private T data;
+
+    public static <T> ApiResponse<T> success(T data) {
+        return new ApiResponse<>(true, "Success", data);
+    }
+
+    public static <T> ApiResponse<T> success(String message, T data) {
+        return new ApiResponse<>(true, message, data);
+    }
+
+    public static <T> ApiResponse<T> error(String message) {
+        return new ApiResponse<>(false, message, null);
+    }
+}
+
+Step 8 — JWT Utility & Filter
+JwtUtil.java
+javapackage com.hardwareassistant.util;
+
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
+
+import java.security.Key;
+import java.util.Date;
+
+@Component
+public class JwtUtil {
+
+    @Value("${app.jwt.secret}")
+    private String secret;
+
+    @Value("${app.jwt.expiration-ms}")
+    private long expirationMs;
+
+    private Key getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes());
+    }
+
+    public String generateToken(UserDetails userDetails) {
+        return Jwts.builder()
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + expirationMs))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String extractUsername(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
+    }
+
+    public boolean validateToken(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+    }
+
+    private boolean isTokenExpired(String token) {
+        Date expiration = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getExpiration();
+        return expiration.before(new Date());
+    }
+}
+JwtAuthenticationFilter.java
+javapackage com.hardwareassistant.filter;
+
+import com.hardwareassistant.util.JwtUtil;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtUtil jwtUtil;
+    private final UserDetailsService userDetailsService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
+
+        final String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        final String jwt = authHeader.substring(7);
+        try {
+            final String userEmail = jwtUtil.extractUsername(jwt);
+
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+                if (jwtUtil.validateToken(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("JWT validation failed: {}", e.getMessage());
+        }
+
+        filterChain.doFilter(request, response);
+    }
+}
+
+Step 9 — Security Config
+javapackage com.hardwareassistant.config;
+
+import com.hardwareassistant.filter.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final UserDetailsService userDetailsService;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/webhooks/**").permitAll()
+                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .anyRequest().authenticated())
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+
+Step 10 — Services
+AuthService.java
+javapackage com.hardwareassistant.service;
+
+import com.hardwareassistant.dto.request.LoginRequest;
+import com.hardwareassistant.dto.request.RegisterRequest;
+import com.hardwareassistant.dto.response.AuthResponse;
+import com.hardwareassistant.entity.User;
+import com.hardwareassistant.exception.BusinessException;
+import com.hardwareassistant.repository.UserRepository;
+import com.hardwareassistant.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final AuthenticationManager authenticationManager;
+
+    public AuthResponse register(RegisterRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BusinessException("Email already in use");
+        }
+
+        User user = User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(User.Role.MERCHANT)
+                .enabled(true)
+                .build();
+
+        userRepository.save(user);
+        String token = jwtUtil.generateToken(user);
+        return new AuthResponse(token, user.getEmail(), user.getRole().name());
+    }
+
+    public AuthResponse login(LoginRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new BusinessException("User not found"));
+
+        String token = jwtUtil.generateToken(user);
+        return new AuthResponse(token, user.getEmail(), user.getRole().name());
+    }
+}
+AiService.java
+javapackage com.hardwareassistant.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hardwareassistant.entity.MerchantProfile;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.List;
+import java.util.Map;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AiService {
+
+    @Value("${app.ai.anthropic-api-key}")
+    private String apiKey;
+
+    @Value("${app.ai.model}")
+    private String model;
+
+    private final WebClient.Builder webClientBuilder;
+    private final ObjectMapper objectMapper;
+
+    public String generateBusinessInsights(MerchantProfile profile) {
+        String prompt = buildPrompt(profile);
+
+        WebClient client = webClientBuilder
+                .baseUrl("https://api.anthropic.com")
+                .defaultHeader("x-api-key", apiKey)
+                .defaultHeader("anthropic-version", "2023-06-01")
+                .defaultHeader("Content-Type", "application/json")
+                .build();
+
+        Map<String, Object> requestBody = Map.of(
+                "model", model,
+                "max_tokens", 1024,
+                "system", "You are a business intelligence assistant for Lagos hardware merchants. " +
+                          "Always respond ONLY with valid JSON. No prose, no markdown, just JSON.",
+                "messages", List.of(Map.of("role", "user", "content", prompt))
+        );
+
+        try {
+            Map<?, ?> response = client.post()
+                    .uri("/v1/messages")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+
+            List<?> content = (List<?>) response.get("content");
+            Map<?, ?> firstContent = (Map<?, ?>) content.get(0);
+            String rawJson = (String) firstContent.get("text");
+
+            // Validate it's real JSON before returning
+            objectMapper.readTree(rawJson);
+            return rawJson;
+
+        } catch (Exception e) {
+            log.error("AI service error: {}", e.getMessage());
+            // Return structured fallback JSON
+            return """
+                {
+                  "error": true,
+                  "message": "AI analysis temporarily unavailable",
+                  "recommendations": [],
+                  "summary": ""
+                }
+                """;
+        }
+    }
+
+    private String buildPrompt(MerchantProfile profile) {
+        return String.format("""
+            Analyze this Lagos hardware merchant business and return ONLY a JSON object with this exact structure:
+            {
+              "summary": "2-3 sentence business summary",
+              "strengths": ["strength1", "strength2"],
+              "weaknesses": ["weakness1", "weakness2"],
+              "recommendations": ["action1", "action2", "action3"],
+              "marketOpportunities": ["opportunity1", "opportunity2"],
+              "estimatedMonthlyRevenuePotential": "₦X - ₦Y",
+              "smsAlert": "Short SMS message (max 160 chars) with top recommendation"
+            }
+            
+            Business details:
+            - Business Name: %s
+            - Location: %s
+            - Customer Type: %s
+            - Products: %s
+            - Price Range: %s
+            """,
+                profile.getBusinessName(),
+                profile.getLocation(),
+                profile.getCustomerType(),
+                profile.getProducts(),
+                profile.getPriceRange()
+        );
+    }
+}
+SmsService.java
+javapackage com.hardwareassistant.service;
+
+import com.hardwareassistant.entity.MerchantProfile;
+import com.hardwareassistant.entity.SmsLog;
+import com.hardwareassistant.repository.SmsLogRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class SmsService {
+
+    @Value("${app.sms.africastalking-api-key}")
+    private String apiKey;
+
+    @Value("${app.sms.africastalking-username}")
+    private String username;
+
+    private final SmsLogRepository smsLogRepository;
+    private final WebClient.Builder webClientBuilder;
+
+    public void sendSms(MerchantProfile profile, String message) {
+        SmsLog smsLog = SmsLog.builder()
+                .merchantProfile(profile)
+                .phoneNumber(profile.getPhoneNumber())
+                .message(message)
+                .status(SmsLog.SmsStatus.PENDING)
+                .build();
+
+        smsLog = smsLogRepository.save(smsLog);
+
+        try {
+            WebClient client = webClientBuilder
+                    .baseUrl("https://api.africastalking.com")
+                    .defaultHeader("apiKey", apiKey)
+                    .defaultHeader("Accept", "application/json")
+                    .build();
+
+            client.post()
+                    .uri("/version1/messaging")
+                    .body(BodyInserters.fromFormData("username", username)
+                            .with("to", profile.getPhoneNumber())
+                            .with("message", message))
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            smsLog.setStatus(SmsLog.SmsStatus.SENT);
+            log.info("SMS sent to {}", profile.getPhoneNumber());
+
+        } catch (Exception e) {
+            smsLog.setStatus(SmsLog.SmsStatus.FAILED);
+            log.error("SMS failed for {}: {}", profile.getPhoneNumber(), e.getMessage());
+        }
+
+        smsLogRepository.save(smsLog);
+    }
+}
+AnalysisService.java
+javapackage com.hardwareassistant.service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hardwareassistant.entity.BusinessAnalysis;
+import com.hardwareassistant.entity.MerchantProfile;
+import com.hardwareassistant.entity.User;
+import com.hardwareassistant.exception.BusinessException;
+import com.hardwareassistant.exception.ResourceNotFoundException;
+import com.hardwareassistant.repository.BusinessAnalysisRepository;
+import com.hardwareassistant.repository.MerchantProfileRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AnalysisService {
+
+    private final AiService aiService;
+    private final SmsService smsService;
+    private final BusinessAnalysisRepository analysisRepository;
+    private final MerchantProfileRepository merchantProfileRepository;
+    private final ObjectMapper objectMapper;
+
+    @Transactional
+    public BusinessAnalysis generateAnalysis(User user, boolean sendSms) {
+        MerchantProfile profile = merchantProfileRepository.findByUser(user)
+                .orElseThrow(() -> new BusinessException("Please complete your merchant profile first"));
+
+        String aiJson = aiService.generateBusinessInsights(profile);
+
+        BusinessAnalysis analysis = BusinessAnalysis.builder()
+                .merchantProfile(profile)
+                .aiResponseJson(aiJson)
+                .build();
+
+        analysis = analysisRepository.save(analysis);
+
+        // Send SMS if requested and phone number exists
+        if (sendSms && profile.getPhoneNumber() != null) {
+            try {
+                JsonNode node = objectMapper.readTree(aiJson);
+                String smsAlert = node.has("smsAlert") ? node.get("smsAlert").asText() : "New business insight available!";
+                smsService.sendSms(profile, smsAlert);
+            } catch (Exception e) {
+                log.warn("Could not extract SMS alert from AI response: {}", e.getMessage());
+            }
+        }
+
+        return analysis;
+    }
+
+    public Page<BusinessAnalysis> getAnalysisHistory(User user, Pageable pageable) {
+        MerchantProfile profile = merchantProfileRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Merchant profile not found"));
+        return analysisRepository.findByMerchantProfileOrderByCreatedAtDesc(profile, pageable);
+    }
+}
+PaymentService.java
+javapackage com.hardwareassistant.service;
+
+import com.hardwareassistant.entity.Subscription;
+import com.hardwareassistant.entity.User;
+import com.hardwareassistant.repository.SubscriptionRepository;
+import com.hardwareassistant.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class PaymentService {
+
+    @Value("${app.payment.paystack-secret-key}")
+    private String paystackSecretKey;
+
+    @Value("${app.payment.paystack-webhook-secret}")
+    private String webhookSecret;
+
+    private final SubscriptionRepository subscriptionRepository;
+    private final UserRepository userRepository;
+
+    @Transactional
+    public void handleSuccessfulPayment(String paymentReference, String customerEmail, String planName) {
+        User user = userRepository.findByEmail(customerEmail)
+                .orElseThrow(() -> new RuntimeException("User not found for email: " + customerEmail));
+
+        Subscription subscription = subscriptionRepository.findByUserId(user.getId())
+                .orElse(Subscription.builder().user(user).build());
+
+        subscription.setPlanName(planName);
+        subscription.setStatus(Subscription.SubscriptionStatus.ACTIVE);
+        subscription.setPaymentProviderId(paymentReference);
+        subscription.setRenewalDate(LocalDateTime.now().plusMonths(1));
+
+        subscriptionRepository.save(subscription);
+        log.info("Subscription activated for user: {}", customerEmail);
+    }
+
+    @Transactional
+    public void handleCancelledPayment(String paymentProviderId) {
+        subscriptionRepository.findByPaymentProviderId(paymentProviderId).ifPresent(sub -> {
+            sub.setStatus(Subscription.SubscriptionStatus.CANCELLED);
+            subscriptionRepository.save(sub);
+        });
+    }
+
+    public boolean verifyWebhookSignature(String payload, String signature) {
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA512");
+            mac.init(new javax.crypto.spec.SecretKeySpec(webhookSecret.getBytes(), "HmacSHA512"));
+            byte[] hash = mac.doFinal(payload.getBytes());
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) hexString.append(String.format("%02x", b));
+            return hexString.toString().equals(signature);
+        } catch (Exception e) {
+            log.error("Webhook signature verification failed", e);
+            return false;
+        }
+    }
+}
+
+Step 11 — Controllers
+AuthController.java
+javapackage com.hardwareassistant.controller;
+
+import com.hardwareassistant.dto.request.LoginRequest;
+import com.hardwareassistant.dto.request.RegisterRequest;
+import com.hardwareassistant.dto.response.ApiResponse;
+import com.hardwareassistant.dto.response.AuthResponse;
+import com.hardwareassistant.service.AuthService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
+        AuthResponse response = authService.register(request);
+        return ResponseEntity.ok(ApiResponse.success("Registration successful", response));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+        AuthResponse response = authService.login(request);
+        return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+    }
+}
+MerchantController.java
+javapackage com.hardwareassistant.controller;
+
+import com.hardwareassistant.dto.request.MerchantProfileRequest;
+import com.hardwareassistant.dto.response.ApiResponse;
+import com.hardwareassistant.entity.MerchantProfile;
+import com.hardwareassistant.entity.User;
+import com.hardwareassistant.exception.ResourceNotFoundException;
+import com.hardwareassistant.repository.MerchantProfileRepository;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/merchant")
+@RequiredArgsConstructor
+public class MerchantController {
+
+    private final MerchantProfileRepository merchantProfileRepository;
+
+    @GetMapping("/profile")
+    public ResponseEntity<ApiResponse<MerchantProfile>> getProfile(@AuthenticationPrincipal User user) {
+        MerchantProfile profile = merchantProfileRepository.findByUser(user)
+                .orElseThrow(() -> new ResourceNotFoundException("Profile not found"));
+        return ResponseEntity.ok(ApiResponse.success(profile));
+    }
+
+    @PostMapping("/profile")
+    public ResponseEntity<ApiResponse<MerchantProfile>> createOrUpdateProfile(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody MerchantProfileRequest request) {
+
+        MerchantProfile profile = merchantProfileRepository.findByUser(user)
+                .orElse(MerchantProfile.builder().user(user).build());
+
+        profile.setBusinessName(request.getBusinessName());
+        profile.setLocation(request.getLocation());
+        profile.setCustomerType(request.getCustomerType());
+        profile.setPhoneNumber(request.getPhoneNumber());
+        profile.setProducts(request.getProducts());
+        profile.setPriceRange(request.getPriceRange());
+
+        MerchantProfile saved = merchantProfileRepository.save(profile);
+        return ResponseEntity.ok(ApiResponse.success("Profile saved", saved));
+    }
+}
+AnalysisController.java
+javapackage com.hardwareassistant.controller;
+
+import com.hardwareassistant.dto.response.ApiResponse;
+import com.hardwareassistant.entity.BusinessAnalysis;
+import com.hardwareassistant.entity.User;
+import com.hardwareassistant.service.AnalysisService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/analysis")
+@RequiredArgsConstructor
+public class AnalysisController {
+
+    private final AnalysisService analysisService;
+
+    @PostMapping("/generate")
+    public ResponseEntity<ApiResponse<BusinessAnalysis>> generateAnalysis(
+            @AuthenticationPrincipal User user,
+            @RequestParam(defaultValue = "false") boolean sendSms) {
+        BusinessAnalysis analysis = analysisService.generateAnalysis(user, sendSms);
+        return ResponseEntity.ok(ApiResponse.success("Analysis generated", analysis));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<Page<BusinessAnalysis>>> getHistory(
+            @AuthenticationPrincipal User user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Page<BusinessAnalysis> history = analysisService.getAnalysisHistory(user, PageRequest.of(page, size));
+        return ResponseEntity.ok(ApiResponse.success(history));
+    }
+}
+AdminController.java
+javapackage com.hardwareassistant.controller;
+
+import com.hardwareassistant.dto.response.ApiResponse;
+import com.hardwareassistant.entity.User;
+import com.hardwareassistant.repository.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/admin")
+@RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
+public class AdminController {
+
+    private final UserRepository userRepository;
+    private final MerchantProfileRepository merchantProfileRepository;
+    private final BusinessAnalysisRepository analysisRepository;
+    private final SmsLogRepository smsLogRepository;
+    private final SubscriptionRepository subscriptionRepository;
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getDashboard() {
+        Map<String, Object> stats = Map.of(
+                "totalUsers", userRepository.count(),
+                "totalMerchants", merchantProfileRepository.count(),
+                "totalAnalyses", analysisRepository.count(),
+                "totalSmsSent", smsLogRepository.count(),
+                "activeSubscriptions", subscriptionRepository.findAll().stream()
+                        .filter(s -> s.getStatus().name().equals("ACTIVE")).count()
+        );
+        return ResponseEntity.ok(ApiResponse.success(stats));
+    }
+
+    @GetMapping("/users")
+    public ResponseEntity<ApiResponse<List<User>>> getAllUsers() {
+        return ResponseEntity.ok(ApiResponse.success(userRepository.findAll()));
+    }
+}
+WebhookController.java
+javapackage com.hardwareassistant.controller;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hardwareassistant.service.PaymentService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/webhooks")
+@RequiredArgsConstructor
+@Slf4j
+public class WebhookController {
+
+    private final PaymentService paymentService;
+    private final ObjectMapper objectMapper;
+
+    @PostMapping("/paystack")
+    public ResponseEntity<Void> handlePaystackWebhook(
+            @RequestBody String payload,
+            @RequestHeader("x-paystack-signature") String signature) {
+
+        if (!paymentService.verifyWebhookSignature(payload, signature)) {
+            log.warn("Invalid Paystack webhook signature");
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            JsonNode event = objectMapper.readTree(payload);
+            String eventType = event.get("event").asText();
+
+            if ("charge.success".equals(eventType)) {
+                JsonNode data = event.get("data");
+                String reference = data.get("reference").asText();
+                String email = data.get("customer").get("email").asText();
+                String plan = data.path("metadata").path("plan_name").asText("basic");
+                paymentService.handleSuccessfulPayment(reference, email, plan);
+            }
+
+        } catch (Exception e) {
+            log.error("Error processing Paystack webhook: {}", e.getMessage());
+        }
+
+        return ResponseEntity.ok().build();
+    }
+}
+
+Step 12 — Global Exception Handler
+javapackage com.hardwareassistant.exception;
+
+import com.hardwareassistant.dto.response.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+@Slf4j
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse<?>> handleNotFound(ResourceNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<?>> handleBusiness(BusinessException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<?>> handleBadCredentials(BadCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error("Invalid email or password"));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<?>> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error("Access denied"));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<?>> handleValidation(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String field = ((FieldError) error).getField();
+            errors.put(field, error.getDefaultMessage());
+        });
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("Validation failed: " + errors));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<?>> handleGeneral(Exception ex) {
+        log.error("Unhandled exception", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("An unexpected error occurred"));
+    }
+}
+java// ResourceNotFoundException.java
+package com.hardwareassistant.exception;
+public class ResourceNotFoundException extends RuntimeException {
+    public ResourceNotFoundException(String message) { super(message); }
+}
+
+// BusinessException.java
+package com.hardwareassistant.exception;
+public class BusinessException extends RuntimeException {
+    public BusinessException(String message) { super(message); }
+}
+
+Step 13 — Main Application
+javapackage com.hardwareassistant;
+
+import com.hardwareassistant.entity.User;
+import com.hardwareassistant.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.reactive.function.client.WebClient;
+
+@SpringBootApplication
+@RequiredArgsConstructor
+@Slf4j
+public class HardwareAssistantApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(HardwareAssistantApplication.class, args);
+    }
+
+    @Bean
+    public WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService(UserRepository userRepository) {
+        return username -> userRepository.findByEmail(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+    }
+
+    @Bean
+    public CommandLineRunner seedAdmin(UserRepository userRepository, PasswordEncoder encoder) {
+        return args -> {
+            if (!userRepository.existsByEmail("admin@hardware.com")) {
+                User admin = User.builder()
+                        .email("admin@hardware.com")
+                        .password(encoder.encode("Admin@123!"))
+                        .role(User.Role.ADMIN)
+                        .enabled(true)
+                        .build();
+                userRepository.save(admin);
+                log.info("Admin user seeded");
+            }
+        };
+    }
+}
+```
+
+---
+
+## PART 3: FRONTEND
+
+### Step 14 — Folder Structure
+```
+hardware-assistant-frontend/
+├── src/
+│   ├── api/
+│   │   ├── axios.js
+│   │   ├── auth.api.js
+│   │   ├── merchant.api.js
+│   │   ├── analysis.api.js
+│   │   └── admin.api.js
+│   ├── components/
+│   │   ├── common/
+│   │   │   ├── Button.jsx
+│   │   │   ├── Input.jsx
+│   │   │   ├── LoadingSpinner.jsx
+│   │   │   ├── ErrorMessage.jsx
+│   │   │   └── Navbar.jsx
+│   │   └── analysis/
+│   │       ├── AnalysisCard.jsx
+│   │       └── AnalysisHistory.jsx
+│   ├── context/
+│   │   └── AuthContext.jsx
+│   ├── hooks/
+│   │   ├── useAuth.js
+│   │   └── useApi.js
+│   ├── pages/
+│   │   ├── auth/
+│   │   │   ├── LoginPage.jsx
+│   │   │   └── RegisterPage.jsx
+│   │   ├── dashboard/
+│   │   │   ├── DashboardPage.jsx
+│   │   │   ├── ProfilePage.jsx
+│   │   │   └── AnalysisPage.jsx
+│   │   └── admin/
+│   │       └── AdminDashboard.jsx
+│   ├── router/
+│   │   ├── AppRouter.jsx
+│   │   └── ProtectedRoute.jsx
+│   ├── utils/
+│   │   └── storage.js
+│   ├── App.jsx
+│   └── main.jsx
+├── .env.local
+├── .env.development
+├── .env.staging
+├── .env.production
+└── vite.config.js
+```
+
+### Step 15 — Environment Configuration
+
+**`.env.local`**
+```
+VITE_API_BASE_URL=http://localhost:8080/api
+VITE_APP_ENV=local
+```
+
+**`.env.development`**
+```
+VITE_API_BASE_URL=https://your-dev-service.railway.app/api
+VITE_APP_ENV=development
+```
+
+**`.env.staging`**
+```
+VITE_API_BASE_URL=https://your-staging-service.railway.app/api
+VITE_APP_ENV=staging
+```
+
+**`.env.production`**
+```
+VITE_API_BASE_URL=https://your-prod-service.railway.app/api
+VITE_APP_ENV=production
+Step 16 — Axios Interceptor
+javascript// src/api/axios.js
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 30000,
+});
+
+// Request interceptor — attach JWT
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor — handle 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+Step 17 — API Service Layer
+javascript// src/api/auth.api.js
+import api from './axios';
+
+export const authApi = {
+  register: (data) => api.post('/auth/register', data),
+  login: (data) => api.post('/auth/login', data),
+};
+javascript// src/api/merchant.api.js
+import api from './axios';
+
+export const merchantApi = {
+  getProfile: () => api.get('/merchant/profile'),
+  saveProfile: (data) => api.post('/merchant/profile', data),
+};
+javascript// src/api/analysis.api.js
+import api from './axios';
+
+export const analysisApi = {
+  generate: (sendSms = false) => api.post(`/analysis/generate?sendSms=${sendSms}`),
+  getHistory: (page = 0, size = 10) => api.get(`/analysis/history?page=${page}&size=${size}`),
+};
+javascript// src/api/admin.api.js
+import api from './axios';
+
+export const adminApi = {
+  getDashboard: () => api.get('/admin/dashboard'),
+  getUsers: () => api.get('/admin/users'),
+};
+Step 18 — Auth Context
+jsx// src/context/AuthContext.jsx
+import { createContext, useContext, useState, useEffect } from 'react';
+import { authApi } from '../api/auth.api';
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [loading, setLoading] = useState(false);
+
+  const login = async (credentials) => {
+    setLoading(true);
+    try {
+      const res = await authApi.login(credentials);
+      const { token, email, role } = res.data.data;
+      localStorage.setItem('token', token);
+      const userObj = { email, role };
+      localStorage.setItem('user', JSON.stringify(userObj));
+      setUser(userObj);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.message || 'Login failed' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (credentials) => {
+    setLoading(true);
+    try {
+      const res = await authApi.register(credentials);
+      const { token, email, role } = res.data.data;
+      localStorage.setItem('token', token);
+      const userObj = { email, role };
+      localStorage.setItem('user', JSON.stringify(userObj));
+      setUser(userObj);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.message || 'Registration failed' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);
+Step 19 — Protected Route
+jsx// src/router/ProtectedRoute.jsx
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+export default function ProtectedRoute({ children, requiredRole }) {
+  const { user } = useAuth();
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (requiredRole && user.role !== requiredRole) return <Navigate to="/dashboard" replace />;
+
+  return children;
+}
+Step 20 — App Router
+jsx// src/router/AppRouter.jsx
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from '../context/AuthContext';
+import ProtectedRoute from './ProtectedRoute';
+import LoginPage from '../pages/auth/LoginPage';
+import RegisterPage from '../pages/auth/RegisterPage';
+import DashboardPage from '../pages/dashboard/DashboardPage';
+import ProfilePage from '../pages/dashboard/ProfilePage';
+import AnalysisPage from '../pages/dashboard/AnalysisPage';
+import AdminDashboard from '../pages/admin/AdminDashboard';
+
+export default function AppRouter() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute><DashboardPage /></ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute><ProfilePage /></ProtectedRoute>
+          } />
+          <Route path="/analysis" element={
+            <ProtectedRoute><AnalysisPage /></ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <ProtectedRoute requiredRole="ADMIN"><AdminDashboard /></ProtectedRoute>
+          } />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+Step 21 — Key Pages
+LoginPage.jsx
+jsximport { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+
+export default function LoginPage() {
+  const { login, loading } = useAuth();
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    const result = await login(form);
+    if (result.success) {
+      navigate('/dashboard');
+    } else {
+      setError(result.error);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-md p-8">
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Hardware Assistant</h1>
+        <p className="text-gray-500 mb-6">Sign in to your account</p>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Don't have an account?{' '}
+          <Link to="/register" className="text-blue-600 hover:underline">Register</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+AnalysisPage.jsx
+jsximport { useState } from 'react';
+import { analysisApi } from '../../api/analysis.api';
+
+export default function AnalysisPage() {
+  const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [error, setError] = useState('');
+  const [sendSms, setSendSms] = useState(false);
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await analysisApi.generate(sendSms);
+      const jsonData = JSON.parse(res.data.data.aiResponseJson);
+      setAnalysis(jsonData);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to generate analysis');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Business Analysis</h1>
+
+      <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+        <p className="text-gray-600 mb-4">
+          Generate an AI-powered analysis of your hardware business with personalized recommendations.
+        </p>
+        <div className="flex items-center gap-3 mb-4">
+          <input
+            type="checkbox"
+            id="sendSms"
+            checked={sendSms}
+            onChange={(e) => setSendSms(e.target.checked)}
+            className="h-4 w-4"
+          />
+          <label htmlFor="sendSms" className="text-sm text-gray-700">
+            Send top recommendation via SMS
+          </label>
+        </div>
+        <button
+          onClick={handleGenerate}
+          disabled={loading}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+        >
+          {loading ? 'Analyzing...' : 'Generate Analysis'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+          {error}
+        </div>
+      )}
+
+      {analysis && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h2 className="font-semibold text-gray-800 mb-2">Summary</h2>
+            <p className="text-gray-600">{analysis.summary}</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-green-50 rounded-xl border border-green-100 p-6">
+              <h2 className="font-semibold text-green-800 mb-3">Strengths</h2>
+              <ul className="space-y-1">
+                {analysis.strengths?.map((s, i) => (
+                  <li key={i} className="text-green-700 text-sm flex gap-2">
+                    <span>✓</span>{s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="bg-red-50 rounded-xl border border-red-100 p-6">
+              <h2 className="font-semibold text-red-800 mb-3">Weaknesses</h2>
+              <ul className="space-y-1">
+                {analysis.weaknesses?.map((w, i) => (
+                  <li key={i} className="text-red-700 text-sm flex gap-2">
+                    <span>!</span>{w}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 rounded-xl border border-blue-100 p-6">
+            <h2 className="font-semibold text-blue-800 mb-3">Recommendations</h2>
+            <ol className="space-y-2">
+              {analysis.recommendations?.map((r, i) => (
+                <li key={i} className="text-blue-700 text-sm flex gap-2">
+                  <span className="font-bold">{i + 1}.</span>{r}
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="bg-yellow-50 rounded-xl border border-yellow-100 p-6">
+            <h2 className="font-semibold text-yellow-800 mb-2">Revenue Potential</h2>
+            <p className="text-2xl font-bold text-yellow-700">
+              {analysis.estimatedMonthlyRevenuePotential}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+AdminDashboard.jsx
+jsximport { useState, useEffect } from 'react';
+import { adminApi } from '../../api/admin.api';
+
+export default function AdminDashboard() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.getDashboard()
+      .then(res => setStats(res.data.data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full" /></div>;
+
+  const cards = [
+    { label: 'Total Users', value: stats?.totalUsers, color: 'blue' },
+    { label: 'Total Merchants', value: stats?.totalMerchants, color: 'green' },
+    { label: 'Analyses Generated', value: stats?.totalAnalyses, color: 'purple' },
+    { label: 'SMS Sent', value: stats?.totalSmsSent, color: 'orange' },
+    { label: 'Active Subscriptions', value: stats?.activeSubscriptions, color: 'teal' },
+  ];
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-8">Admin Dashboard</h1>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {cards.map((card) => (
+          <div key={card.label} className="bg-white rounded-xl shadow-sm border p-5">
+            <p className="text-sm text-gray-500">{card.label}</p>
+            <p className="text-3xl font-bold text-gray-800 mt-1">{card.value ?? '—'}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+PART 4: DEVOPS
+Step 22 — Dockerfile
+dockerfileFROM eclipse-temurin:17-jdk-alpine AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN apk add --no-cache maven && mvn clean package -DskipTests
+
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+Step 23 — GitHub Actions: Backend CI/CD
+.github/workflows/backend-ci.yml
+yamlname: Backend CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run tests
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          DATABASE_URL: jdbc:postgresql://localhost:5432/testdb
+          DATABASE_USERNAME: testuser
+          DATABASE_PASSWORD: testpass
+          JWT_SECRET: test-secret-key-at-least-256-bits-long-1234567890
+          ANTHROPIC_API_KEY: test
+          AT_API_KEY: test
+          AT_USERNAME: sandbox
+          PAYSTACK_SECRET_KEY: test
+          PAYSTACK_WEBHOOK_SECRET: test
+        run: mvn test
+
+  deploy-dev:
+    name: Deploy to Development
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway (dev)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: railway up --service hardware-assistant-dev
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway (prod)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        run: railway up --service hardware-assistant-prod
+Step 24 — GitHub Actions: Frontend CI/CD
+.github/workflows/frontend-ci.yml
+yamlname: Frontend CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  build:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build (dev)
+        if: github.ref == 'refs/heads/develop'
+        env:
+          VITE_API_BASE_URL: ${{ secrets.DEV_API_BASE_URL }}
+        run: npm run build
+
+      - name: Build (prod)
+        if: github.ref == 'refs/heads/main'
+        env:
+          VITE_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+        run: npm run build
+
+  deploy-vercel-dev:
+    name: Deploy to Vercel (Dev Preview)
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+
+  deploy-vercel-prod:
+    name: Deploy to Vercel (Production)
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Vercel (Prod)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./frontend
+```
+
+### Step 25 — GitHub Secrets to Configure
+
+Add these in GitHub → Settings → Secrets and Variables → Actions:
+
+| Secret Name | Description |
+|---|---|
+| `RAILWAY_TOKEN_DEV` | Railway dev environment token |
+| `RAILWAY_TOKEN_PROD` | Railway prod environment token |
+| `VERCEL_TOKEN` | Vercel API token |
+| `VERCEL_ORG_ID` | Vercel org ID |
+| `VERCEL_PROJECT_ID` | Vercel project ID |
+| `DEV_API_BASE_URL` | Dev backend URL |
+| `PROD_API_BASE_URL` | Prod backend URL |
+
+### Step 26 — Railway Environment Variables (set in Railway dashboard)
+
+For each Railway service, add:
+```
+SPRING_PROFILES_ACTIVE=prod
+DATABASE_URL=jdbc:postgresql://...
+DATABASE_USERNAME=...
+DATABASE_PASSWORD=...
+JWT_SECRET=<generate with: openssl rand -base64 64>
+ANTHROPIC_API_KEY=sk-ant-...
+AT_API_KEY=...
+AT_USERNAME=...
+PAYSTACK_SECRET_KEY=sk_live_...
+PAYSTACK_WEBHOOK_SECRET=...
+```
+
+---
+
+## PART 5: BUSINESS MODEL
+
+### Step 27 — Subscription Pricing (Paystack NGN)
+
+| Plan | Price/Month | Analyses/Month | SMS Included |
+|---|---|---|---|
+| **Free** | ₦0 | 3 | No |
+| **Starter** | ₦2,500 | 20 | 5 SMS |
+| **Growth** | ₦7,500 | 100 | 20 SMS |
+| **Pro** | ₦15,000 | Unlimited | 50 SMS |
+
+### Step 28 — Monthly Cost Breakdown (at 100 active users)
+
+| Service | Estimated Cost |
+|---|---|
+| Railway (backend) | $5–20/month |
+| Railway (PostgreSQL) | $5/month |
+| Vercel (frontend) | Free–$20/month |
+| Anthropic API | ~$0.015/analysis × 500 analyses = ~$7.50 |
+| Africa's Talking SMS | ~₦20/SMS × 200 SMS = ₦4,000 (~$2.50) |
+| **Total** | **~$40–55/month** |
+
+Break-even: Just 3 Starter subscribers (₦7,500/mo = ~$4.50) covers hosting. Every Growth/Pro subscriber is profit.
+
+---
+
+## PART 6: PRODUCTION READINESS CHECKLIST
+```
+SECURITY
+□ JWT secret is ≥256-bit random string (openssl rand -base64 64)
+□ All secrets are in env vars, NOT in code or git
+□ .gitignore includes .env* files
+□ CORS restricted to actual frontend domain in production
+□ Paystack webhook signature verification enabled
+□ Passwords BCrypt-hashed (cost factor 10+)
+□ Input validation on all endpoints
+
+DATABASE
+□ Flyway migrations run on startup
+□ DB connection pool sized appropriately (Hikari)
+□ DB credentials rotated from defaults
+□ Backups enabled on Railway managed DB
+
+DEVOPS
+□ main branch protected (PR required)
+□ CI passes before merge allowed
+□ Separate Railway services for dev/prod
+□ Separate Vercel environments for dev/prod
+□ Environment variables set per environment
+
+MONITORING
+□ /actuator/health endpoint accessible
+□ Logging level WARN in production
+□ Error responses never leak stack traces
+
+FRONTEND
+□ API base URL from env var (never hardcoded)
+□ 401 responses auto-redirect to login
+□ Loading states on all async operations
+□ Error messages shown to user
+
+DAY-BY-DAY EXECUTION PLAN
+DayTasksDay 1Backend scaffold, DB migrations, Auth (register/login), JWT workingDay 2Merchant profile, AI service, Analysis generation + historyDay 3SMS service, Payment webhook, Admin controllerDay 4Frontend: Auth pages, Dashboard, Profile, Analysis pageDay 5Admin dashboard, CI/CD pipelines, Deploy to Railway + Vercel, smoke test
+This is your complete production blueprint. Every file is copy-paste ready. Start with Day 1 — get Auth working locally first, then layer each feature. Let me know when you're ready to tackle any specific section in more depth.I want to create frontend project using vite. walk me through the step8:36 PMLet's get your frontend project set up. A few quick questions to make sure the setup matches exactly what you need:Let me just ask you directly — which package manager are you using (npm, yarn, or pnpm), what OS are you on, and do you want just the Vite scaffold or the full folder structure from the architecture plan?
+In the meantime, here's the complete walkthrough covering all scenarios:
+
+Step-by-Step: Create the Frontend with Vite
+
+STEP 1 — Prerequisites Check
+Before anything, confirm you have Node.js installed. Open your terminal and run:
+bashnode -v
+npm -v
+You need Node.js 18+. If you don't have it, download it from nodejs.org. The LTS version is fine.
+
+STEP 2 — Scaffold the Vite + React Project
+Navigate to where you want your project to live, then run:
+Using npm:
+bashnpm create vite@latest hardware-assistant-frontend -- --template react
+Using yarn:
+bashyarn create vite hardware-assistant-frontend --template react
+Using pnpm:
+bashpnpm create vite hardware-assistant-frontend --template react
+```
+
+Vite will scaffold the project instantly. You'll see output like:
+```
+✔ Project name: hardware-assistant-frontend
+✔ Select a framework: React
+✔ Select a variant: JavaScript
+
+If you want TypeScript instead of JavaScript, use --template react-ts
+
+
+STEP 3 — Enter the Project and Install Dependencies
+bashcd hardware-assistant-frontend
+npm install
+
+STEP 4 — Install All Required Dependencies
+Install everything the project needs in one command:
+bashnpm install react-router-dom axios
+Then install Tailwind CSS and its peer dependencies:
+bashnpm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+This creates two files: tailwind.config.js and postcss.config.js.
+
+STEP 5 — Configure Tailwind
+Open tailwind.config.js and replace its contents with:
+js/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+Then open src/index.css and replace everything with:
+css@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+---
+
+### STEP 6 — Clean Up Vite's Default Files
+
+Vite ships with boilerplate you don't need. Clean it up:
+
+**Delete these files:**
+```
+src/App.css
+src/assets/react.svg
+public/vite.svg
+Replace src/App.jsx with:
+jsxfunction App() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <h1 className="text-3xl font-bold text-blue-600">
+        Hardware Assistant 🔧
+      </h1>
+    </div>
+  );
+}
+
+export default App;
+Replace src/main.jsx with:
+jsximport { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+```
+
+---
+
+### STEP 7 — Set Up Environment Files
+
+In the root of your project, create these four files:
+
+**`.env.local`** (used when you run `npm run dev`)
+```
+VITE_API_BASE_URL=http://localhost:8080/api
+VITE_APP_ENV=local
+```
+
+**`.env.development`**
+```
+VITE_API_BASE_URL=https://your-dev-backend.railway.app/api
+VITE_APP_ENV=development
+```
+
+**`.env.staging`**
+```
+VITE_API_BASE_URL=https://your-staging-backend.railway.app/api
+VITE_APP_ENV=staging
+```
+
+**`.env.production`**
+```
+VITE_API_BASE_URL=https://your-prod-backend.railway.app/api
+VITE_APP_ENV=production
+```
+
+> **Important:** Add `.env.local` to your `.gitignore`. The other `.env.*` files can be committed since they contain no secrets — just URLs.
+
+Update `.gitignore` to include:
+```
+.env.local
+.env.*.local
+
+STEP 8 — Update vite.config.js
+Replace vite.config.js with:
+jsimport { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    proxy: {
+      // Optional: proxy API calls in dev to avoid CORS issues
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+  }
+})
+
+STEP 9 — Build the Full Folder Structure
+Run this block in your terminal to create all the folders and empty files at once:
+bash# Create folder structure
+mkdir -p src/api
+mkdir -p src/components/common
+mkdir -p src/components/analysis
+mkdir -p src/context
+mkdir -p src/hooks
+mkdir -p src/pages/auth
+mkdir -p src/pages/dashboard
+mkdir -p src/pages/admin
+mkdir -p src/router
+mkdir -p src/utils
+
+# Create empty files
+touch src/api/axios.js
+touch src/api/auth.api.js
+touch src/api/merchant.api.js
+touch src/api/analysis.api.js
+touch src/api/admin.api.js
+
+touch src/components/common/Button.jsx
+touch src/components/common/Input.jsx
+touch src/components/common/LoadingSpinner.jsx
+touch src/components/common/ErrorMessage.jsx
+touch src/components/common/Navbar.jsx
+touch src/components/analysis/AnalysisCard.jsx
+touch src/components/analysis/AnalysisHistory.jsx
+
+touch src/context/AuthContext.jsx
+
+touch src/hooks/useAuth.js
+touch src/hooks/useApi.js
+
+touch src/pages/auth/LoginPage.jsx
+touch src/pages/auth/RegisterPage.jsx
+touch src/pages/dashboard/DashboardPage.jsx
+touch src/pages/dashboard/ProfilePage.jsx
+touch src/pages/dashboard/AnalysisPage.jsx
+touch src/pages/admin/AdminDashboard.jsx
+
+touch src/router/AppRouter.jsx
+touch src/router/ProtectedRoute.jsx
+
+touch src/utils/storage.js
+
+Windows users: Run this in Git Bash or WSL. In PowerShell, use New-Item instead of touch.
+
+Windows PowerShell equivalent:
+powershell$folders = @(
+  "src/api", "src/components/common", "src/components/analysis",
+  "src/context", "src/hooks", "src/pages/auth", "src/pages/dashboard",
+  "src/pages/admin", "src/router", "src/utils"
+)
+$folders | ForEach-Object { New-Item -ItemType Directory -Force -Path $_ }
+
+STEP 10 — Wire Up the Router in App.jsx
+Now update src/App.jsx to use React Router:
+jsximport AppRouter from './router/AppRouter'
+
+function App() {
+  return <AppRouter />
+}
+
+export default App
+Then populate src/router/AppRouter.jsx with the full router (copy from the architecture plan above — it's the complete AppRouter.jsx file with all routes).
+
+STEP 11 — Test That Everything Works
+bashnpm run dev
+Open your browser at http://localhost:5173. You should see your app running. Tailwind will be active — try adding a className="text-blue-500" anywhere to confirm it's working.
+
+STEP 12 — Add Useful npm Scripts
+Open package.json and update the scripts section:
+json"scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "build:staging": "vite build --mode staging",
+  "build:production": "vite build --mode production",
+  "preview": "vite preview",
+  "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
+}
+```
+
+Now you can run `npm run build:staging` and it'll pick up `.env.staging`.
+
+---
+
+### What Your Final Structure Looks Like
+```
+hardware-assistant-frontend/
+├── public/
+├── src/
+│   ├── api/             ← Axios instance + API calls per domain
+│   ├── components/      ← Reusable UI components
+│   ├── context/         ← AuthContext (global auth state)
+│   ├── hooks/           ← Custom hooks
+│   ├── pages/           ← Route-level page components
+│   ├── router/          ← AppRouter + ProtectedRoute
+│   ├── utils/           ← Helpers (localStorage, formatting)
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css        ← Tailwind directives
+├── .env.local
+├── .env.development
+├── .env.staging
+├── .env.production
+├── tailwind.config.js
+├── vite.config.js
+└── package.json
+
+Quick Reference: Commands You'll Use Daily
+CommandWhat it doesnpm run devStart dev server on port 5173npm run buildProduction buildnpm run build:stagingStaging buildnpm run previewPreview the production build locallynpm run lintCheck for code issues
+
+Once you've confirmed the dev server runs, the next step is filling in the files — starting with src/api/axios.js and src/context/AuthContext.jsx, then the Login page. Let me know when you're ready to move to that step or if you hit any errors during setup.Q: Which package manager do you want to use?
+A: npmQ: What's your operating system?
+A: WindowsQ: Do you want me to include the full folder structure setup after scaffolding (components, pages, api, context, etc.)?
+A: Yes, full setup8:38 PMPerfect. Let's go step by step. Run each command exactly as shown, and don't move to the next step until the current one succeeds.
+
+STEP 1 — Check Prerequisites
+Open Command Prompt or PowerShell and run:
+bashnode -v
+npm -v
+You should see something like v20.x.x and 10.x.x. If you get "not recognized", download Node.js LTS from nodejs.org and restart your terminal after installing.
+
+STEP 2 — Scaffold the Project
+Navigate to the folder where you want your project to live. For example, if you want it on your Desktop:
+bashcd Desktop
+Then run:
+bashnpm create vite@latest hardware-assistant-frontend -- --template react
+```
+
+You'll see this prompt — answer exactly like this:
+```
+✔ Select a framework: › React
+✔ Select a variant: › JavaScript
+
+STEP 3 — Enter the Project Folder and Install Base Dependencies
+bashcd hardware-assistant-frontend
+npm install
+Then install the project-specific packages:
+bashnpm install react-router-dom axios
+
+STEP 4 — Install and Configure Tailwind CSS
+bashnpm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+This creates tailwind.config.js and postcss.config.js in your project root.
+Now open tailwind.config.js in your code editor and replace the entire file with:
+js/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+Then open src/index.css and replace everything with:
+css@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+---
+
+## STEP 5 — Clean Up Vite Boilerplate
+
+Delete these files (you don't need them):
+```
+src/App.css
+src/assets/react.svg
+public/vite.svg
+You can delete them in File Explorer or via PowerShell:
+powershellRemove-Item src\App.css
+Remove-Item src\assets\react.svg
+Remove-Item public\vite.svg
+
+STEP 6 — Replace Default Files
+Replace src/main.jsx with:
+jsximport { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+Replace src/App.jsx with:
+jsximport AppRouter from './router/AppRouter'
+
+function App() {
+  return <AppRouter />
+}
+
+export default App
+
+STEP 7 — Create the Full Folder Structure
+Run this in PowerShell (not Command Prompt — PowerShell handles this better on Windows):
+powershell# Create all folders
+New-Item -ItemType Directory -Force -Path src/api
+New-Item -ItemType Directory -Force -Path src/components/common
+New-Item -ItemType Directory -Force -Path src/components/analysis
+New-Item -ItemType Directory -Force -Path src/context
+New-Item -ItemType Directory -Force -Path src/hooks
+New-Item -ItemType Directory -Force -Path src/pages/auth
+New-Item -ItemType Directory -Force -Path src/pages/dashboard
+New-Item -ItemType Directory -Force -Path src/pages/admin
+New-Item -ItemType Directory -Force -Path src/router
+New-Item -ItemType Directory -Force -Path src/utils
+Then create all the empty files:
+powershell# API layer
+New-Item -ItemType File -Force -Path src/api/axios.js
+New-Item -ItemType File -Force -Path src/api/auth.api.js
+New-Item -ItemType File -Force -Path src/api/merchant.api.js
+New-Item -ItemType File -Force -Path src/api/analysis.api.js
+New-Item -ItemType File -Force -Path src/api/admin.api.js
+
+# Common components
+New-Item -ItemType File -Force -Path src/components/common/Button.jsx
+New-Item -ItemType File -Force -Path src/components/common/Input.jsx
+New-Item -ItemType File -Force -Path src/components/common/LoadingSpinner.jsx
+New-Item -ItemType File -Force -Path src/components/common/ErrorMessage.jsx
+New-Item -ItemType File -Force -Path src/components/common/Navbar.jsx
+
+# Analysis components
+New-Item -ItemType File -Force -Path src/components/analysis/AnalysisCard.jsx
+New-Item -ItemType File -Force -Path src/components/analysis/AnalysisHistory.jsx
+
+# Context
+New-Item -ItemType File -Force -Path src/context/AuthContext.jsx
+
+# Hooks
+New-Item -ItemType File -Force -Path src/hooks/useAuth.js
+New-Item -ItemType File -Force -Path src/hooks/useApi.js
+
+# Auth pages
+New-Item -ItemType File -Force -Path src/pages/auth/LoginPage.jsx
+New-Item -ItemType File -Force -Path src/pages/auth/RegisterPage.jsx
+
+# Dashboard pages
+New-Item -ItemType File -Force -Path src/pages/dashboard/DashboardPage.jsx
+New-Item -ItemType File -Force -Path src/pages/dashboard/ProfilePage.jsx
+New-Item -ItemType File -Force -Path src/pages/dashboard/AnalysisPage.jsx
+
+# Admin pages
+New-Item -ItemType File -Force -Path src/pages/admin/AdminDashboard.jsx
+
+# Router
+New-Item -ItemType File -Force -Path src/router/AppRouter.jsx
+New-Item -ItemType File -Force -Path src/router/ProtectedRoute.jsx
+
+# Utils
+New-Item -ItemType File -Force -Path src/utils/storage.js
+
+STEP 8 — Set Up Environment Files
+In your project root (same level as package.json), create these files manually in your editor or via PowerShell:
+powershellNew-Item -ItemType File -Force -Path .env.local
+New-Item -ItemType File -Force -Path .env.development
+New-Item -ItemType File -Force -Path .env.staging
+New-Item -ItemType File -Force -Path .env.production
+```
+
+Now paste the content into each:
+
+**`.env.local`**
+```
+VITE_API_BASE_URL=http://localhost:8080/api
+VITE_APP_ENV=local
+```
+
+**`.env.development`**
+```
+VITE_API_BASE_URL=https://your-dev-backend.railway.app/api
+VITE_APP_ENV=development
+```
+
+**`.env.staging`**
+```
+VITE_API_BASE_URL=https://your-staging-backend.railway.app/api
+VITE_APP_ENV=staging
+```
+
+**`.env.production`**
+```
+VITE_API_BASE_URL=https://your-prod-backend.railway.app/api
+VITE_APP_ENV=production
+```
+
+---
+
+## STEP 9 — Update `.gitignore`
+
+Open `.gitignore` (Vite creates this automatically) and make sure these lines are present:
+```
+# env files
+.env.local
+.env.*.local
+
+# dependencies
+node_modules
+
+# build output
+dist
