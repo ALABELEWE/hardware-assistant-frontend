@@ -52,6 +52,17 @@ export default function Navbar() {
               ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
               {user.role}
             </span>
+            {user.role !== 'ADMIN' && (
+              <Link
+                to="/subscription"
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full transition
+                  ${isActive('/subscription')
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white'}`}
+              >
+                ⚡ Upgrade
+              </Link>
+            )}
             <button
               onClick={handleLogout}
               className="text-sm text-gray-500 hover:text-red-600 transition font-medium"

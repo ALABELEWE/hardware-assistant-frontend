@@ -8,6 +8,8 @@ import RegisterPage from '../pages/auth/RegisterPage';
 import DashboardPage from '../pages/dashboard/DashboardPage';
 import ProfilePage from '../pages/dashboard/ProfilePage';
 import AnalysisPage from '../pages/dashboard/AnalysisPage';
+import SubscriptionPage from '../pages/dashboard/SubscriptionPage';
+import PaymentSuccessPage from '../pages/dashboard/PaymentSuccessPage';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 
 function ProtectedLayout({ children, requiredRole }) {
@@ -28,6 +30,8 @@ export default function AppRouter() {
           <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
           <Route path="/profile" element={<ProtectedLayout><ProfilePage /></ProtectedLayout>} />
           <Route path="/analysis" element={<ProtectedLayout><AnalysisPage /></ProtectedLayout>} />
+          <Route path="/subscription" element={<ProtectedLayout><SubscriptionPage /></ProtectedLayout>} />
+          <Route path="/payment/success" element={<ProtectedLayout><PaymentSuccessPage /></ProtectedLayout>} />
           <Route path="/admin" element={<ProtectedLayout requiredRole="ADMIN"><AdminDashboard /></ProtectedLayout>} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
