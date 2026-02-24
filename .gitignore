@@ -2919,6 +2919,9 @@ Open `.gitignore` (Vite creates this automatically) and make sure these lines ar
 ```
 # env files
 .env.local
+.env.production
+.env.staging
+.env.development
 .env.*.local
 
 # dependencies
