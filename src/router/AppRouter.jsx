@@ -3,6 +3,7 @@ import { AuthProvider } from '../context/AuthContext';
 import ProtectedRoute from './ProtectedRoute';
 import Layout from '../components/common/Layout';
 
+import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterPage from '../pages/auth/RegisterPage';
 import DashboardPage from '../pages/dashboard/DashboardPage';
@@ -25,15 +26,21 @@ export default function AppRouter() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
-          <Route path="/profile" element={<ProtectedLayout><ProfilePage /></ProtectedLayout>} />
-          <Route path="/analysis" element={<ProtectedLayout><AnalysisPage /></ProtectedLayout>} />
+          {/* Public */}
+          <Route path="/"          element={<LandingPage />}   />
+          <Route path="/login"     element={<LoginPage />}     />
+          <Route path="/register"  element={<RegisterPage />}  />
+
+          {/* Protected */}
+          <Route path="/dashboard"  element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
+          <Route path="/profile"    element={<ProtectedLayout><ProfilePage /></ProtectedLayout>} />
+          <Route path="/analysis"   element={<ProtectedLayout><AnalysisPage /></ProtectedLayout>} />
           <Route path="/subscription" element={<ProtectedLayout><SubscriptionPage /></ProtectedLayout>} />
           <Route path="/payment/success" element={<ProtectedLayout><PaymentSuccessPage /></ProtectedLayout>} />
-          <Route path="/admin" element={<ProtectedLayout requiredRole="ADMIN"><AdminDashboard /></ProtectedLayout>} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/admin"      element={<ProtectedLayout requiredRole="ADMIN"><AdminDashboard /></ProtectedLayout>} />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
