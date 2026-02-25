@@ -12,6 +12,8 @@ import AnalysisPage from '../pages/dashboard/AnalysisPage';
 import SubscriptionPage from '../pages/dashboard/SubscriptionPage';
 import PaymentSuccessPage from '../pages/dashboard/PaymentSuccessPage';
 import AdminDashboard from '../pages/admin/AdminDashboard';
+import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
+import ResetPasswordPage  from '../pages/auth/ResetPasswordPage';
 
 function ProtectedLayout({ children, requiredRole }) {
   return (
@@ -30,6 +32,8 @@ export default function AppRouter() {
           <Route path="/"          element={<LandingPage />}   />
           <Route path="/login"     element={<LoginPage />}     />
           <Route path="/register"  element={<RegisterPage />}  />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password"  element={<ResetPasswordPage  />} />
 
           {/* Protected */}
           <Route path="/dashboard"  element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
