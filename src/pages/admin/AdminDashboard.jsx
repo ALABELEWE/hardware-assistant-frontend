@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { adminApi } from '../../api/admin.api';
 import { Skeleton } from '../../components/common/Skeleton';
+import AiUsageSummaryCard from '../../components/admin/AiUsageSummaryCard';
 
 const container = {
   hidden: {},
@@ -70,6 +71,9 @@ export default function AdminDashboard() {
   const [loading,   setLoading]   = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [search,    setSearch]    = useState('');
+
+  // Get token for AiUsageSummaryCard
+  const token = localStorage.getItem('token');
 
   useEffect(() => {
     Promise.all([adminApi.getDashboard(), adminApi.getUsers()])
@@ -152,11 +156,17 @@ export default function AdminDashboard() {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <>
+            {/* Stat Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {statCards.map((card) => (
                 <StatCard key={card.label} {...card} />
               ))}
             </div>
+
+            {/* AI Usage Summary Card */}
+            <motion.div variants={item}>
+              <AiUsageSummaryCard token={token} />
+            </motion.div>
 
             {/* Summary Banner */}
             <motion.div variants={item}

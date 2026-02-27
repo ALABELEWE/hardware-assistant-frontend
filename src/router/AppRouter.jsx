@@ -16,6 +16,7 @@ import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
 import ResetPasswordPage  from '../pages/auth/ResetPasswordPage';
 import VerifyEmailPage from '../pages/auth/VerifyEmailPage';
 import EmailVerificationPendingPage from '../pages/auth/EmailVerificationPendingPage';
+import AiUsagePage from "../pages/admin/AiUsagePage";
 
 
 
@@ -48,6 +49,7 @@ export default function AppRouter() {
           <Route path="/admin"      element={<ProtectedLayout requiredRole="ADMIN"><AdminDashboard /></ProtectedLayout>} />
           <Route path="/verify-email"         element={<VerifyEmailPage />} />
           <Route path="/verify-email-pending" element={<EmailVerificationPendingPage />} />
+          <Route path="/admin/ai-usage" element={<AiUsagePage />} />
           
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
