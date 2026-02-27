@@ -1,9 +1,108 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShieldAlert, Ban, X } from 'lucide-react';
 import { analysisApi } from '../../api/analysis.api';
 import { useToast } from '../../context/ToastContext';
 import { AnalysisSkeleton } from '../../components/common/Skeleton';
 import Button from '../../components/common/Button';
 import ErrorMessage from '../../components/common/ErrorMessage';
+
+// ── Security Warning Banner ───────────────────────────────────────────────────
+function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss }) {
+  if (!incidentType) return null;
+
+  const isBanned  = incidentType === 'BANNED' || incidentType === 'BLOCKED';
+  const isWarning = incidentType === 'WARNING';
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: -12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0,   scale: 1     }}
+        exit={{    opacity: 0, y: -12, scale: 0.98  }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className={`relative rounded-2xl border p-5 mb-5
+          ${isBanned
+            ? 'bg-red-950/60 border-red-700 shadow-lg shadow-red-900/30'
+            : 'bg-amber-950/50 border-amber-600 shadow-lg shadow-amber-900/20'}`}
+      >
+        <div className="flex items-start gap-4">
+
+          {/* Icon */}
+          <div className={`shrink-0 rounded-xl p-2.5
+            ${isBanned ? 'bg-red-700/40' : 'bg-amber-600/30'}`}>
+            {isBanned
+              ? <Ban         className="w-6 h-6 text-red-400" />
+              : <ShieldAlert className="w-6 h-6 text-amber-400" />
+            }
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <p className={`font-bold text-sm mb-1
+              ${isBanned ? 'text-red-300' : 'text-amber-300'}`}>
+              {isBanned
+                ? '🚫 Account Suspended'
+                : `⚠️ Security Warning — Attempt ${attemptCount} of 3`}
+            </p>
+            <p className={`text-sm leading-relaxed
+              ${isBanned ? 'text-red-400' : 'text-amber-400/90'}`}>
+              {message}
+            </p>
+
+            {/* Attempt progress bar — warnings only */}
+            {isWarning && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-amber-500/70">Violation count</span>
+                  <span className="text-xs font-bold text-amber-400">{attemptCount} / 3</span>
+                </div>
+                <div className="h-1.5 bg-amber-900/50 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(attemptCount / 3) * 100}%` }}
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                    className={`h-full rounded-full
+                      ${attemptCount >= 2 ? 'bg-red-500' : 'bg-amber-500'}`}
+                  />
+                </div>
+                <p className="text-xs text-amber-600/70 mt-1.5">
+                  {3 - attemptCount} more violation{3 - attemptCount !== 1 ? 's' : ''} will
+                  result in account suspension.
+                </p>
+              </div>
+            )}
+
+            {/* Ban: contact support */}
+            {isBanned && (
+              <p className="text-xs text-red-500/80 mt-2">
+                Contact{' '}
+                <a
+                  href="mailto:support@hardwareai.org"
+                  className="text-red-400 underline hover:text-red-300 transition"
+                >
+                  support@hardwareai.org
+                </a>
+                {' '}if you believe this is a mistake.
+              </p>
+            )}
+          </div>
+
+          {/* Dismiss — warnings only */}
+          {isWarning && onDismiss && (
+            <button
+              onClick={onDismiss}
+              className="shrink-0 text-amber-600 hover:text-amber-400 transition mt-0.5"
+              aria-label="Dismiss warning"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 // ── Insight Card ─────────────────────────────────────────────────────────────
 function InsightCard({ title, items, color }) {
@@ -122,6 +221,17 @@ function RateLimitBanner({ message, retryAfterMinutes }) {
 function classifyError(err) {
   const status = err.response?.status;
   const data   = err.response?.data;
+  const meta   = data?.fieldErrors; // incidentType + attemptCount live here
+
+  // Security incident — must check BEFORE generic 400/403 handling
+  if (meta?.incidentType) {
+    return {
+      type:         'security',
+      incidentType: meta.incidentType,
+      attemptCount: parseInt(meta.attemptCount || '1'),
+      message:      data.message,
+    };
+  }
 
   if (status === 429) return {
     type: 'rate_limit',
@@ -152,10 +262,12 @@ function classifyError(err) {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function AnalysisPage() {
-  const [loading,   setLoading]   = useState(false);
-  const [analysis,  setAnalysis]  = useState(null);
-  const [history,   setHistory]   = useState([]);
-  const [error,     setError]     = useState(null);  // { type, message, retryAfterMinutes? }
+  const [loading,          setLoading]          = useState(false);
+  const [analysis,         setAnalysis]         = useState(null);
+  const [history,          setHistory]          = useState([]);
+  const [error,            setError]            = useState(null);
+  const [securityIncident, setSecurityIncident] = useState(null);
+  // Shape: { incidentType: 'WARNING'|'BLOCKED'|'BANNED', attemptCount: number, message: string }
   const [sendSms,   setSendSms]   = useState(false);
   const [activeTab, setActiveTab] = useState('generate');
   const { toast } = useToast();
@@ -175,33 +287,47 @@ export default function AnalysisPage() {
     setLoading(true);
     setError(null);
     setAnalysis(null);
+    // Don't clear securityIncident — user should see the warning persist across attempts
     toast('AI analysis started...', 'info');
 
     try {
       const res = await analysisApi.generate(sendSms);
       const parsed = res.data.data.analysis;
       setAnalysis(parsed);
+      setSecurityIncident(null); // clear only on a clean successful response
       loadHistory();
       toast('Analysis generated successfully!', 'success');
     } catch (err) {
       const classified = classifyError(err);
-      setError(classified);
 
-      if (classified.type === 'rate_limit') {
-        toast(`⏳ ${classified.message}`, 'error');
-      } else if (classified.type === 'profile') {
-        toast('📝 Complete your profile first', 'error');
-      } else if (classified.type === 'forbidden') {
-        toast('📧 Please verify your email first', 'error');
-      } else if (classified.type === 'auth') {
-        toast('🔒 Session expired. Please log in again.', 'error');
+      if (classified.type === 'security') {
+        // Security incident — the banner IS the notification, no toast
+        setSecurityIncident({
+          incidentType: classified.incidentType,
+          attemptCount: classified.attemptCount,
+          message:      classified.message,
+        });
       } else {
-        toast(classified.message, 'error');
+        setError(classified);
+        if (classified.type === 'rate_limit') {
+          toast(`⏳ ${classified.message}`, 'error');
+        } else if (classified.type === 'profile') {
+          toast('📝 Complete your profile first', 'error');
+        } else if (classified.type === 'forbidden') {
+          toast('📧 Please verify your email first', 'error');
+        } else if (classified.type === 'auth') {
+          toast('🔒 Session expired. Please log in again.', 'error');
+        } else {
+          toast(classified.message, 'error');
+        }
       }
     } finally {
       setLoading(false);
     }
   };
+
+  const isBannedOrBlocked = securityIncident?.incidentType === 'BLOCKED'
+                         || securityIncident?.incidentType === 'BANNED';
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -242,29 +368,39 @@ export default function AnalysisPage() {
               Our AI will analyze your business profile and give you actionable recommendations.
             </p>
 
-            {/* SMS toggle */}
-            <label className="flex items-center gap-3 cursor-pointer mb-5 select-none">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={sendSms}
-                  onChange={(e) => setSendSms(e.target.checked)}
-                />
-                <div className={`w-10 h-6 rounded-full transition
-                  ${sendSms ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white
-                  shadow transition-transform ${sendSms ? 'translate-x-4' : ''}`} />
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Send top recommendation via SMS
-                </span>
-                <p className="text-xs text-gray-400">Requires phone number in your profile</p>
-              </div>
-            </label>
+            {/* Security incident banner — renders above everything else */}
+            <SecurityWarningBanner
+              incidentType={securityIncident?.incidentType}
+              attemptCount={securityIncident?.attemptCount}
+              message={securityIncident?.message}
+              onDismiss={() => setSecurityIncident(null)}
+            />
 
-            {/* Error display — rate limit gets special banner, others get standard */}
+            {/* SMS toggle — hidden when banned so there's nothing to interact with */}
+            {!isBannedOrBlocked && (
+              <label className="flex items-center gap-3 cursor-pointer mb-5 select-none">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={sendSms}
+                    onChange={(e) => setSendSms(e.target.checked)}
+                  />
+                  <div className={`w-10 h-6 rounded-full transition
+                    ${sendSms ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white
+                    shadow transition-transform ${sendSms ? 'translate-x-4' : ''}`} />
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    Send top recommendation via SMS
+                  </span>
+                  <p className="text-xs text-gray-400">Requires phone number in your profile</p>
+                </div>
+              </label>
+            )}
+
+            {/* Regular error display — rate limit gets special banner, others use ErrorMessage */}
             {error?.type === 'rate_limit' ? (
               <RateLimitBanner
                 message={error.message}
@@ -274,14 +410,17 @@ export default function AnalysisPage() {
               <ErrorMessage message={error.message} />
             ) : null}
 
-            <Button
-              onClick={handleGenerate}
-              disabled={loading || error?.type === 'rate_limit'}
-              size="lg"
-              fullWidth
-            >
-              {loading ? '🤖 Analyzing your business...' : '🚀 Generate Analysis'}
-            </Button>
+            {/* Generate button — hidden when banned/blocked */}
+            {!isBannedOrBlocked && (
+              <Button
+                onClick={handleGenerate}
+                disabled={loading || error?.type === 'rate_limit'}
+                size="lg"
+                fullWidth
+              >
+                {loading ? '🤖 Analyzing your business...' : '🚀 Generate Analysis'}
+              </Button>
+            )}
 
             {/* Context-specific hints below button */}
             {error?.type === 'profile' && (
