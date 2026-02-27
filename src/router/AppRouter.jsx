@@ -14,6 +14,10 @@ import PaymentSuccessPage from '../pages/dashboard/PaymentSuccessPage';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
 import ResetPasswordPage  from '../pages/auth/ResetPasswordPage';
+import VerifyEmailPage from '../pages/auth/VerifyEmailPage';
+import EmailVerificationPendingPage from '../pages/auth/EmailVerificationPendingPage';
+
+
 
 function ProtectedLayout({ children, requiredRole }) {
   return (
@@ -42,7 +46,9 @@ export default function AppRouter() {
           <Route path="/subscription" element={<ProtectedLayout><SubscriptionPage /></ProtectedLayout>} />
           <Route path="/payment/success" element={<ProtectedLayout><PaymentSuccessPage /></ProtectedLayout>} />
           <Route path="/admin"      element={<ProtectedLayout requiredRole="ADMIN"><AdminDashboard /></ProtectedLayout>} />
-
+          <Route path="/verify-email"         element={<VerifyEmailPage />} />
+          <Route path="/verify-email-pending" element={<EmailVerificationPendingPage />} />
+          
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

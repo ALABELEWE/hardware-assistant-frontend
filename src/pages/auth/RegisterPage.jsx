@@ -36,7 +36,7 @@ export default function RegisterPage() {
     const v = validate();
     if (Object.keys(v).length > 0) { setErrors(v); return; }
     const result = await register({ email: form.email, password: form.password });
-    if (result.success) navigate('/profile');
+    if (result.success) navigate('/verify-email-pending', {state: { email: form.email }});
     else setErrors({ general: result.error });
   };
 
