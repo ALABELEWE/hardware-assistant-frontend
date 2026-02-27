@@ -1,49 +1,51 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from "recharts";
 import {
-  Cpu, DollarSign, Zap, Users, TrendingUp, TrendingDown,
-  Activity, ChevronRight, ArrowUpRight, ArrowDownRight,
-  Calendar, Filter, Download, RefreshCw
+  DollarSign, Zap, Users, Activity,
+  ArrowUpRight, ArrowDownRight,
+  Calendar, Download, RefreshCw
 } from "lucide-react";
 
-// ── API ──────────────────────────────────────────────────────────────────────
-const API_BASE = import.meta.env.VITE_API_URL || "https://hardware-assistant-backend-production.up.railway.app/api";
+// ── API ───────────────────────────────────────────────────────────────────
+const API_BASE = import.meta.env.VITE_API_URL ||
+  "https://hardware-assistant-backend-production.up.railway.app/api";
 
 async function fetchAiUsage(token) {
   const res = await fetch(`${API_BASE}/admin/ai-usage`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("Failed to fetch AI usage");
-  return res.json();
+  const json = await res.json();
+  // Unwrap ApiResponse wrapper: { data: { ... } }
+  return json.data ?? json;
 }
 
-// ── Mock data (used when API returns no data yet) ─────────────────────────
-const MOCK_MONTHLY = [
-  { month: "Sep", cost: 0.12, tokens: 180000, analyses: 28 },
-  { month: "Oct", cost: 0.19, tokens: 290000, analyses: 44 },
-  { month: "Nov", cost: 0.15, tokens: 230000, analyses: 36 },
-  { month: "Dec", cost: 0.31, tokens: 470000, analyses: 71 },
-  { month: "Jan", cost: 0.28, tokens: 420000, analyses: 63 },
-  { month: "Feb", cost: 0.41, tokens: 648000, analyses: 97 },
-];
-
-const MOCK_USERS = [
-  { email: "admin@hardware.com", totalCost: 0.18, tokens: 280000, analyses: 42 },
-  { email: "merchant@lagos.ng", totalCost: 0.12, tokens: 190000, analyses: 28 },
-  { email: "store@abuja.ng", totalCost: 0.07, tokens: 110000, analyses: 17 },
-  { email: "hardware@ph.ng", totalCost: 0.04, tokens: 68000, analyses: 10 },
+// ── Fallback (shown only if API totally fails) ────────────────────────────
+const FALLBACK_MONTHLY = [
+  { month: "Sep", cost: 0, tokens: 0, analyses: 0 },
+  { month: "Oct", cost: 0, tokens: 0, analyses: 0 },
+  { month: "Nov", cost: 0, tokens: 0, analyses: 0 },
+  { month: "Dec", cost: 0, tokens: 0, analyses: 0 },
+  { month: "Jan", cost: 0, tokens: 0, analyses: 0 },
+  { month: "Feb", cost: 0, tokens: 0, analyses: 0 },
 ];
 
 const TOKEN_SPLIT = [
-  { name: "Prompt", value: 62, color: "#00ff87" },
+  { name: "Prompt",     value: 62, color: "#00ff87" },
   { name: "Completion", value: 38, color: "#0099ff" },
 ];
 
-// ── Sub-components ────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
+function safeNum(v, fallback = 0) {
+  const n = parseFloat(v);
+  return isNaN(n) ? fallback : n;
+}
+
+// ── StatCard ──────────────────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, sub, trend, delay = 0 }) {
   const up = trend > 0;
   return (
@@ -71,6 +73,7 @@ function StatCard({ icon: Icon, label, value, sub, trend, delay = 0 }) {
   );
 }
 
+// ── Tooltip ───────────────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -78,8 +81,12 @@ const CustomTooltip = ({ active, payload, label }) => {
       <p className="tt-label">{label}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }}>
-          {p.name}: <strong>{typeof p.value === "number" && p.name === "cost"
-            ? `$${p.value.toFixed(4)}` : p.value.toLocaleString()}</strong>
+          {p.name}:{" "}
+          <strong>
+            {p.name === "cost"
+              ? `$${safeNum(p.value).toFixed(4)}`
+              : safeNum(p.value).toLocaleString()}
+          </strong>
         </p>
       ))}
     </div>
@@ -88,10 +95,9 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 export default function AiUsagePage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("cost");
+  const [apiData,    setApiData]    = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [activeTab,  setActiveTab]  = useState("cost");
   const [refreshing, setRefreshing] = useState(false);
 
   const token = localStorage.getItem("token");
@@ -100,11 +106,10 @@ export default function AiUsagePage() {
     try {
       setRefreshing(true);
       const result = await fetchAiUsage(token);
-      setData(result);
+      setApiData(result);
     } catch (e) {
-      setError(e.message);
-      // fall back to mock data for display purposes
-      setData({ mock: true });
+      console.error("AI usage fetch failed:", e.message);
+      setApiData(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -113,250 +118,108 @@ export default function AiUsagePage() {
 
   useEffect(() => { load(); }, []);
 
-  const monthly = MOCK_MONTHLY;
-  const users = MOCK_USERS;
-  const totalCost = monthly.reduce((s, m) => s + m.cost, 0);
-  const totalTokens = monthly.reduce((s, m) => s + m.tokens, 0);
-  const totalAnalyses = monthly.reduce((s, m) => s + m.analyses, 0);
+  // ── Derive display values from real API data ──────────────────────────
+  const monthly = apiData?.monthlyTrend?.length
+    ? apiData.monthlyTrend.map((m) => ({
+        month:    m.month,
+        cost:     safeNum(m.cost),
+        tokens:   safeNum(m.tokens),
+        analyses: safeNum(m.analyses),
+      }))
+    : FALLBACK_MONTHLY;
+
+  const users = apiData?.perUserUsage?.length
+    ? apiData.perUserUsage.map((u) => ({
+        email:     u.email,
+        totalCost: safeNum(u.totalCost),
+        tokens:    safeNum(u.totalTokens),
+        analyses:  safeNum(u.analyses),
+      }))
+    : [];
+
+  const totalCost       = safeNum(apiData?.totalCost);
+  const totalTokens     = safeNum(apiData?.totalTokens);
+  const thisMonthCost   = safeNum(apiData?.totalCostThisMonth);
+  const monthlyAnalyses = safeNum(apiData?.monthlyAnalyses);
+
+  // Cost trend: compare last two months
   const lastMonth = monthly[monthly.length - 1];
   const prevMonth = monthly[monthly.length - 2];
-  const costTrend = Math.round(((lastMonth.cost - prevMonth.cost) / prevMonth.cost) * 100);
+  const costTrend = prevMonth?.cost > 0
+    ? Math.round(((lastMonth.cost - prevMonth.cost) / prevMonth.cost) * 100)
+    : 0;
+
+  const trendTotalTokens = users.reduce((s, u) => s + u.tokens, 0) || 1;
+  const totalAnalyses    = monthly.reduce((s, m) => s + m.analyses, 0);
 
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        .ai-page {
-          min-height: 100vh;
-          background: #080c10;
-          color: #e2e8f0;
-          font-family: 'DM Sans', sans-serif;
-          padding: 0 0 60px 0;
-        }
-
-        /* ── Header ── */
-        .page-header {
-          border-bottom: 1px solid rgba(0,255,135,0.08);
-          padding: 28px 40px 24px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: linear-gradient(180deg, rgba(0,255,135,0.03) 0%, transparent 100%);
-        }
+        .ai-page { min-height: 100vh; background: #080c10; color: #e2e8f0; font-family: 'DM Sans', sans-serif; padding: 0 0 60px 0; }
+        .page-header { border-bottom: 1px solid rgba(0,255,135,0.08); padding: 28px 40px 24px; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(180deg, rgba(0,255,135,0.03) 0%, transparent 100%); }
         .header-left { display: flex; flex-direction: column; gap: 4px; }
-        .header-eyebrow {
-          font-family: 'Space Mono', monospace;
-          font-size: 10px;
-          letter-spacing: 3px;
-          text-transform: uppercase;
-          color: #00ff87;
-          opacity: 0.7;
-        }
-        .header-title {
-          font-family: 'Space Mono', monospace;
-          font-size: 22px;
-          font-weight: 700;
-          color: #fff;
-          letter-spacing: -0.5px;
-        }
-        .header-actions { display: flex; gap: 10px; }
-        .btn-icon {
-          display: flex; align-items: center; gap: 6px;
-          padding: 8px 14px;
-          border-radius: 8px;
-          border: 1px solid rgba(255,255,255,0.08);
-          background: rgba(255,255,255,0.03);
-          color: #94a3b8;
-          font-size: 13px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
+        .header-eyebrow { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #00ff87; opacity: 0.7; }
+        .header-title { font-family: 'Space Mono', monospace; font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+        .header-actions { display: flex; gap: 10px; align-items: center; }
+        .btn-icon { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color: #94a3b8; font-size: 13px; cursor: pointer; transition: all 0.2s; }
         .btn-icon:hover { background: rgba(255,255,255,0.07); color: #e2e8f0; }
         .btn-refresh { color: #00ff87; border-color: rgba(0,255,135,0.2); }
         .btn-refresh:hover { background: rgba(0,255,135,0.07); }
         .spinning { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ── Content ── */
+        .live-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #00ff87; opacity: 0.7; font-family: 'Space Mono', monospace; }
+        .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #00ff87; animation: pulse-dot 2s infinite; }
+        @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
         .page-body { padding: 32px 40px; display: flex; flex-direction: column; gap: 32px; }
-
-        /* ── Stat Cards ── */
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
-        }
-        .stat-card {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 14px;
-          padding: 20px;
-          display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          position: relative;
-          overflow: hidden;
-          transition: border-color 0.2s;
-        }
-        .stat-card::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, rgba(0,255,135,0.03) 0%, transparent 60%);
-          pointer-events: none;
-        }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .stat-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 20px; display: flex; align-items: flex-start; gap: 14px; position: relative; overflow: hidden; transition: border-color 0.2s; }
+        .stat-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(0,255,135,0.03) 0%, transparent 60%); pointer-events: none; }
         .stat-card:hover { border-color: rgba(0,255,135,0.2); }
-        .stat-icon-wrap {
-          width: 36px; height: 36px;
-          border-radius: 10px;
-          background: rgba(0,255,135,0.08);
-          border: 1px solid rgba(0,255,135,0.15);
-          display: flex; align-items: center; justify-content: center;
-          color: #00ff87;
-          flex-shrink: 0;
-        }
+        .stat-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: rgba(0,255,135,0.08); border: 1px solid rgba(0,255,135,0.15); display: flex; align-items: center; justify-content: center; color: #00ff87; flex-shrink: 0; }
         .stat-body { flex: 1; display: flex; flex-direction: column; gap: 3px; }
         .stat-label { font-size: 11px; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase; }
         .stat-value { font-family: 'Space Mono', monospace; font-size: 22px; font-weight: 700; color: #fff; }
         .stat-sub { font-size: 12px; color: #64748b; }
-        .stat-trend {
-          display: flex; align-items: center; gap: 3px;
-          font-size: 12px; font-weight: 600;
-          padding: 4px 8px;
-          border-radius: 20px;
-          flex-shrink: 0;
-          margin-top: 2px;
-        }
+        .stat-trend { display: flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 20px; flex-shrink: 0; margin-top: 2px; }
         .stat-trend.up { color: #00ff87; background: rgba(0,255,135,0.1); }
         .stat-trend.down { color: #f87171; background: rgba(248,113,113,0.1); }
-
-        /* ── Charts Row ── */
         .charts-row { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
-
-        .chart-card {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 16px;
-          padding: 24px;
-        }
-        .chart-header {
-          display: flex; align-items: center; justify-content: space-between;
-          margin-bottom: 24px;
-        }
-        .chart-title {
-          font-family: 'Space Mono', monospace;
-          font-size: 13px;
-          color: #94a3b8;
-          letter-spacing: 0.5px;
-        }
+        .chart-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 24px; }
+        .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .chart-title { font-family: 'Space Mono', monospace; font-size: 13px; color: #94a3b8; letter-spacing: 0.5px; }
         .tab-group { display: flex; gap: 4px; }
-        .tab-btn {
-          padding: 5px 12px;
-          border-radius: 6px;
-          border: 1px solid transparent;
-          background: transparent;
-          color: #64748b;
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .tab-btn.active {
-          background: rgba(0,255,135,0.1);
-          border-color: rgba(0,255,135,0.2);
-          color: #00ff87;
-        }
+        .tab-btn { padding: 5px 12px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #64748b; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+        .tab-btn.active { background: rgba(0,255,135,0.1); border-color: rgba(0,255,135,0.2); color: #00ff87; }
         .tab-btn:hover:not(.active) { color: #94a3b8; background: rgba(255,255,255,0.04); }
-
-        .chart-tooltip {
-          background: #0f1923;
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 10px;
-          padding: 10px 14px;
-          font-size: 13px;
-        }
+        .chart-tooltip { background: #0f1923; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; font-size: 13px; }
         .tt-label { color: #64748b; font-size: 11px; margin-bottom: 4px; }
-
-        /* ── Token Pie ── */
         .pie-wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; }
         .pie-legend { width: 100%; display: flex; flex-direction: column; gap: 10px; }
-        .legend-item {
-          display: flex; align-items: center; justify-content: space-between;
-        }
+        .legend-item { display: flex; align-items: center; justify-content: space-between; }
         .legend-dot-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #94a3b8; }
         .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
         .legend-val { font-family: 'Space Mono', monospace; font-size: 13px; color: #e2e8f0; }
-
-        /* ── User Table ── */
-        .table-card {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.06);
-          border-radius: 16px;
-          overflow: hidden;
-        }
-        .table-head {
-          padding: 20px 24px 16px;
-          display: flex; align-items: center; justify-content: space-between;
-          border-bottom: 1px solid rgba(255,255,255,0.04);
-        }
+        .table-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
+        .table-head { padding: 20px 24px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.04); }
         .table-title { font-family: 'Space Mono', monospace; font-size: 13px; color: #94a3b8; }
         table { width: 100%; border-collapse: collapse; }
-        th {
-          padding: 11px 24px;
-          text-align: left;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: #475569;
-          font-weight: 500;
-          background: rgba(0,0,0,0.2);
-        }
-        td {
-          padding: 14px 24px;
-          font-size: 13px;
-          color: #94a3b8;
-          border-bottom: 1px solid rgba(255,255,255,0.03);
-        }
+        th { padding: 11px 24px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #475569; font-weight: 500; background: rgba(0,0,0,0.2); }
+        td { padding: 14px 24px; font-size: 13px; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.03); }
         tr:last-child td { border-bottom: none; }
         tr:hover td { background: rgba(255,255,255,0.02); }
         .td-email { color: #e2e8f0; font-weight: 500; }
         .td-mono { font-family: 'Space Mono', monospace; font-size: 12px; }
         .td-cost { color: #00ff87; font-family: 'Space Mono', monospace; font-size: 12px; }
-
         .usage-bar-wrap { display: flex; align-items: center; gap: 10px; }
-        .usage-bar-bg {
-          flex: 1; height: 4px; background: rgba(255,255,255,0.06);
-          border-radius: 2px; overflow: hidden;
-        }
-        .usage-bar-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #00ff87, #0099ff);
-          border-radius: 2px;
-        }
-
-        /* ── Loading ── */
-        .loading-screen {
-          display: flex; align-items: center; justify-content: center;
-          min-height: 60vh;
-          flex-direction: column; gap: 16px;
-        }
-        .pulse-ring {
-          width: 48px; height: 48px;
-          border: 2px solid rgba(0,255,135,0.2);
-          border-top-color: #00ff87;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
+        .usage-bar-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+        .usage-bar-fill { height: 100%; background: linear-gradient(90deg, #00ff87, #0099ff); border-radius: 2px; }
+        .empty-row td { text-align: center; color: #475569; padding: 40px 24px; font-size: 13px; }
+        .loading-screen { display: flex; align-items: center; justify-content: center; min-height: 60vh; flex-direction: column; gap: 16px; }
+        .pulse-ring { width: 48px; height: 48px; border: 2px solid rgba(0,255,135,0.2); border-top-color: #00ff87; border-radius: 50%; animation: spin 0.8s linear infinite; }
         .loading-text { font-family: 'Space Mono', monospace; font-size: 12px; color: #00ff87; opacity: 0.6; }
-
-        /* ── Responsive ── */
-        @media (max-width: 1100px) {
-          .stats-grid { grid-template-columns: repeat(2, 1fr); }
-          .charts-row { grid-template-columns: 1fr; }
-          .page-header, .page-body { padding-left: 20px; padding-right: 20px; }
-        }
+        @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .charts-row { grid-template-columns: 1fr; } .page-header, .page-body { padding-left: 20px; padding-right: 20px; } }
       `}</style>
 
       <div className="ai-page">
@@ -367,6 +230,9 @@ export default function AiUsagePage() {
             <h1 className="header-title">AI Usage & Cost Monitor</h1>
           </div>
           <div className="header-actions">
+            <div className="live-badge">
+              <div className="live-dot" /> LIVE DATA
+            </div>
             <button className="btn-icon">
               <Calendar size={14} /> This Month
             </button>
@@ -401,7 +267,9 @@ export default function AiUsagePage() {
               <StatCard
                 icon={Zap}
                 label="Total Tokens Used"
-                value={`${(totalTokens / 1000).toFixed(0)}K`}
+                value={totalTokens >= 1000
+                  ? `${(totalTokens / 1000).toFixed(0)}K`
+                  : String(totalTokens)}
                 sub={`${totalAnalyses} analyses`}
                 trend={12}
                 delay={0.08}
@@ -409,8 +277,8 @@ export default function AiUsagePage() {
               <StatCard
                 icon={Activity}
                 label="This Month"
-                value={`$${lastMonth.cost.toFixed(4)}`}
-                sub={`${lastMonth.analyses} analyses`}
+                value={`$${thisMonthCost.toFixed(4)}`}
+                sub={`${monthlyAnalyses} analyses`}
                 trend={costTrend}
                 delay={0.16}
               />
@@ -431,7 +299,7 @@ export default function AiUsagePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
             >
-              {/* Main trend chart */}
+              {/* Trend chart */}
               <div className="chart-card">
                 <div className="chart-header">
                   <span className="chart-title">6-MONTH TREND</span>
@@ -481,10 +349,8 @@ export default function AiUsagePage() {
                   <PieChart width={180} height={180}>
                     <Pie
                       data={TOKEN_SPLIT}
-                      cx={86}
-                      cy={86}
-                      innerRadius={52}
-                      outerRadius={80}
+                      cx={86} cy={86}
+                      innerRadius={52} outerRadius={80}
                       paddingAngle={3}
                       dataKey="value"
                     >
@@ -534,30 +400,40 @@ export default function AiUsagePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u, i) => {
-                    const share = Math.round((u.tokens / totalTokens) * 100);
-                    return (
-                      <motion.tr
-                        key={u.email}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.5 + i * 0.06 }}
-                      >
-                        <td className="td-email">{u.email}</td>
-                        <td className="td-mono">{u.analyses}</td>
-                        <td className="td-mono">{(u.tokens / 1000).toFixed(0)}K</td>
-                        <td>
-                          <div className="usage-bar-wrap">
-                            <div className="usage-bar-bg">
-                              <div className="usage-bar-fill" style={{ width: `${share}%` }} />
+                  {users.length === 0 ? (
+                    <tr className="empty-row">
+                      <td colSpan={5}>No usage data yet</td>
+                    </tr>
+                  ) : (
+                    users.map((u, i) => {
+                      const share = Math.round((u.tokens / trendTotalTokens) * 100);
+                      return (
+                        <motion.tr
+                          key={u.email}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.5 + i * 0.06 }}
+                        >
+                          <td className="td-email">{u.email}</td>
+                          <td className="td-mono">{u.analyses}</td>
+                          <td className="td-mono">
+                            {u.tokens >= 1000
+                              ? `${(u.tokens / 1000).toFixed(0)}K`
+                              : u.tokens}
+                          </td>
+                          <td>
+                            <div className="usage-bar-wrap">
+                              <div className="usage-bar-bg">
+                                <div className="usage-bar-fill" style={{ width: `${Math.min(share, 100)}%` }} />
+                              </div>
+                              <span style={{ fontSize: 11, color: "#64748b", minWidth: 28 }}>{share}%</span>
                             </div>
-                            <span style={{ fontSize: 11, color: "#64748b", minWidth: 28 }}>{share}%</span>
-                          </div>
-                        </td>
-                        <td className="td-cost">${u.totalCost.toFixed(4)}</td>
-                      </motion.tr>
-                    );
-                  })}
+                          </td>
+                          <td className="td-cost">${u.totalCost.toFixed(4)}</td>
+                        </motion.tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </motion.div>
