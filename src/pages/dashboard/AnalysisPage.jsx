@@ -48,7 +48,7 @@ function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss 
               {message}
             </p>
 
-            {/* Attempt progress bar — warnings only */}
+            {/* Attempt progress bar */}
             {isWarning && (
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-1">
@@ -146,8 +146,8 @@ function AnalysisResult({ data }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <InsightCard title="✅ Strengths"        items={data.strengths}  color="green" />
-        <InsightCard title={'\u26A0\uFE0F Weaknesses'} items={data.weaknesses} color="red" />
+        <InsightCard title="✅ Strengths"                   items={data.strengths}  color="green" />
+        <InsightCard title={'\u26A0\uFE0F Weaknesses'} items={data.weaknesses} color="red"   />
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
@@ -314,6 +314,7 @@ export default function AnalysisPage() {
     try {
       const res = await analysisApi.getHistory(page);
       const pageData = res.data.data;
+      // history returns AnalysisResponse: { id, createdAt, analysis: {...} }
       setHistory(pageData.content || []);
       setTotalPages(pageData.totalPages || 1);
       setCurrentPage(pageData.number || 0);
@@ -332,15 +333,29 @@ export default function AnalysisPage() {
 
     try {
       const res = await analysisApi.generate(sendSms);
+      const data = res.data?.data;
 
-      // Response: { data: { content: [{ analysis, createdAt, id }], ... } }
-      const content = res.data?.data?.content;
-      if (content && content.length > 0) {
-        setAnalysis(content[0].analysis);
-      } else {
-        setAnalysis(res.data?.data?.analysis || null);
+      // generate returns raw BusinessAnalysis entity:
+      //   { id, createdAt, aiResponseJson: "{\"summary\":...}" }  ← JSON string
+      // history returns AnalysisResponse DTO:
+      //   { id, createdAt, analysis: { summary, ... } }           ← parsed object
+      let parsed = null;
+
+      if (data?.aiResponseJson) {
+        // Raw entity path — parse the JSON string
+        parsed = typeof data.aiResponseJson === 'string'
+          ? JSON.parse(data.aiResponseJson)
+          : data.aiResponseJson;
+      } else if (data?.analysis) {
+        // DTO path (future-proof if backend is updated)
+        parsed = data.analysis;
       }
 
+      if (!parsed) {
+        throw new Error('No analysis data returned');
+      }
+
+      setAnalysis(parsed);
       setSecurityIncident(null);
       loadHistory();
       toast('Analysis generated successfully!', 'success');
