@@ -27,8 +27,6 @@ function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss 
             : 'bg-amber-950/50 border-amber-600 shadow-lg shadow-amber-900/20'}`}
       >
         <div className="flex items-start gap-4">
-
-          {/* Icon */}
           <div className={`shrink-0 rounded-xl p-2.5
             ${isBanned ? 'bg-red-700/40' : 'bg-amber-600/30'}`}>
             {isBanned
@@ -37,7 +35,6 @@ function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss 
             }
           </div>
 
-          {/* Content */}
           <div className="flex-1 min-w-0">
             <p className={`font-bold text-sm mb-1
               ${isBanned ? 'text-red-300' : 'text-amber-300'}`}>
@@ -50,7 +47,6 @@ function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss 
               {message}
             </p>
 
-            {/* Attempt progress bar — warnings only */}
             {isWarning && (
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-1">
@@ -73,11 +69,10 @@ function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss 
               </div>
             )}
 
-            {/* Ban: contact support */}
             {isBanned && (
               <p className="text-xs text-red-500/80 mt-2">
                 Contact{' '}
-                <a
+                
                   href="mailto:support@hardwareai.org"
                   className="text-red-400 underline hover:text-red-300 transition"
                 >
@@ -88,7 +83,6 @@ function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss 
             )}
           </div>
 
-          {/* Dismiss — warnings only */}
           {isWarning && onDismiss && (
             <button
               onClick={onDismiss}
@@ -104,7 +98,7 @@ function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss 
   );
 }
 
-// ── Insight Card ─────────────────────────────────────────────────────────────
+// ── Insight Card ──────────────────────────────────────────────────────────────
 function InsightCard({ title, items, color }) {
   const colors = {
     green:  'bg-green-50  dark:bg-green-950  border-green-100  dark:border-green-900  text-green-800  dark:text-green-200',
@@ -127,7 +121,7 @@ function InsightCard({ title, items, color }) {
   );
 }
 
-// ── Analysis Result ──────────────────────────────────────────────────────────
+// ── Analysis Result ───────────────────────────────────────────────────────────
 function AnalysisResult({ data }) {
   return (
     <div className="flex flex-col gap-4 mt-6">
@@ -194,7 +188,7 @@ function AnalysisResult({ data }) {
   );
 }
 
-// ── Rate Limit Banner ────────────────────────────────────────────────────────
+// ── Rate Limit Banner ─────────────────────────────────────────────────────────
 function RateLimitBanner({ message, retryAfterMinutes }) {
   return (
     <div className="flex items-start gap-4 bg-amber-50 dark:bg-amber-950 border
@@ -217,13 +211,12 @@ function RateLimitBanner({ message, retryAfterMinutes }) {
   );
 }
 
-// ── Error Classifier ─────────────────────────────────────────────────────────
+// ── Error Classifier ──────────────────────────────────────────────────────────
 function classifyError(err) {
   const status = err.response?.status;
   const data   = err.response?.data;
-  const meta   = data?.fieldErrors; // incidentType + attemptCount live here
+  const meta   = data?.fieldErrors;
 
-  // Security incident — must check BEFORE generic 400/403 handling
   if (meta?.incidentType) {
     return {
       type:         'security',
@@ -260,22 +253,77 @@ function classifyError(err) {
   };
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
+// ── History Item ──────────────────────────────────────────────────────────────
+function HistoryItem({ item }) {
+  const [expanded, setExpanded] = useState(false);
+  const analysis = item.analysis || null;
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border
+      border-gray-100 dark:border-gray-800 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-400 mb-2">
+            {new Date(item.createdAt).toLocaleDateString('en-NG', {
+              day: 'numeric', month: 'long', year: 'numeric',
+              hour: '2-digit', minute: '2-digit',
+            })}
+          </p>
+          {analysis && (
+            <>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 line-clamp-2">
+                {analysis.summary}
+              </p>
+              {analysis.estimatedMonthlyRevenuePotential && (
+                <span className="text-xs bg-brand-100 dark:bg-brand-900
+                  text-brand-700 dark:text-brand-300 font-semibold px-3 py-1 rounded-full">
+                  💰 {analysis.estimatedMonthlyRevenuePotential}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+        {analysis && (
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="shrink-0 text-xs text-brand-500 hover:text-brand-600
+              font-medium transition mt-1"
+          >
+            {expanded ? 'Hide ▲' : 'View ▼'}
+          </button>
+        )}
+      </div>
+
+      {expanded && analysis && (
+        <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+          <AnalysisResult data={analysis} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AnalysisPage() {
   const [loading,          setLoading]          = useState(false);
   const [analysis,         setAnalysis]         = useState(null);
   const [history,          setHistory]          = useState([]);
+  const [totalPages,       setTotalPages]       = useState(1);
+  const [currentPage,      setCurrentPage]      = useState(0);
   const [error,            setError]            = useState(null);
   const [securityIncident, setSecurityIncident] = useState(null);
-  // Shape: { incidentType: 'WARNING'|'BLOCKED'|'BANNED', attemptCount: number, message: string }
-  const [sendSms,   setSendSms]   = useState(false);
-  const [activeTab, setActiveTab] = useState('generate');
+  const [sendSms,          setSendSms]          = useState(false);
+  const [activeTab,        setActiveTab]        = useState('generate');
   const { toast } = useToast();
 
-  const loadHistory = async () => {
+  const loadHistory = async (page = 0) => {
     try {
-      const res = await analysisApi.getHistory();
-      setHistory(res.data.data.content || []);
+      const res = await analysisApi.getHistory(page);
+      const pageData = res.data.data;
+      // Each item in content has { id, createdAt, analysis: {...} }
+      setHistory(pageData.content || []);
+      setTotalPages(pageData.totalPages || 1);
+      setCurrentPage(pageData.number || 0);
     } catch {
       // silently fail
     }
@@ -287,21 +335,27 @@ export default function AnalysisPage() {
     setLoading(true);
     setError(null);
     setAnalysis(null);
-    // Don't clear securityIncident — user should see the warning persist across attempts
     toast('AI analysis started...', 'info');
 
     try {
       const res = await analysisApi.generate(sendSms);
-      const parsed = res.data.data.analysis;
-      setAnalysis(parsed);
-      setSecurityIncident(null); // clear only on a clean successful response
+
+      // Response structure: { data: { content: [{ analysis, createdAt, id }], ... } }
+      const content = res.data?.data?.content;
+      if (content && content.length > 0) {
+        setAnalysis(content[0].analysis);
+      } else {
+        // Fallback: try direct data.analysis path
+        setAnalysis(res.data?.data?.analysis || null);
+      }
+
+      setSecurityIncident(null);
       loadHistory();
       toast('Analysis generated successfully!', 'success');
     } catch (err) {
       const classified = classifyError(err);
 
       if (classified.type === 'security') {
-        // Security incident — the banner IS the notification, no toast
         setSecurityIncident({
           incidentType: classified.incidentType,
           attemptCount: classified.attemptCount,
@@ -345,7 +399,10 @@ export default function AnalysisPage() {
         {['generate', 'history'].map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab);
+              if (tab === 'history') loadHistory(0);
+            }}
             className={`px-5 py-2 rounded-lg text-sm font-medium transition capitalize
               ${activeTab === tab
                 ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-800 dark:text-white'
@@ -356,7 +413,7 @@ export default function AnalysisPage() {
         ))}
       </div>
 
-      {/* Generate Tab */}
+      {/* ── Generate Tab ── */}
       {activeTab === 'generate' && (
         <div>
           <div className="bg-white dark:bg-gray-900 rounded-2xl border
@@ -368,7 +425,6 @@ export default function AnalysisPage() {
               Our AI will analyze your business profile and give you actionable recommendations.
             </p>
 
-            {/* Security incident banner — renders above everything else */}
             <SecurityWarningBanner
               incidentType={securityIncident?.incidentType}
               attemptCount={securityIncident?.attemptCount}
@@ -376,7 +432,6 @@ export default function AnalysisPage() {
               onDismiss={() => setSecurityIncident(null)}
             />
 
-            {/* SMS toggle — hidden when banned so there's nothing to interact with */}
             {!isBannedOrBlocked && (
               <label className="flex items-center gap-3 cursor-pointer mb-5 select-none">
                 <div className="relative">
@@ -400,7 +455,6 @@ export default function AnalysisPage() {
               </label>
             )}
 
-            {/* Regular error display — rate limit gets special banner, others use ErrorMessage */}
             {error?.type === 'rate_limit' ? (
               <RateLimitBanner
                 message={error.message}
@@ -410,7 +464,6 @@ export default function AnalysisPage() {
               <ErrorMessage message={error.message} />
             ) : null}
 
-            {/* Generate button — hidden when banned/blocked */}
             {!isBannedOrBlocked && (
               <Button
                 onClick={handleGenerate}
@@ -422,7 +475,6 @@ export default function AnalysisPage() {
               </Button>
             )}
 
-            {/* Context-specific hints below button */}
             {error?.type === 'profile' && (
               <p className="text-xs text-center text-gray-400 mt-3">
                 👉 Go to{' '}
@@ -449,7 +501,7 @@ export default function AnalysisPage() {
         </div>
       )}
 
-      {/* History Tab */}
+      {/* ── History Tab ── */}
       {activeTab === 'history' && (
         <div className="flex flex-col gap-3">
           {history.length === 0 ? (
@@ -459,33 +511,38 @@ export default function AnalysisPage() {
               <p className="text-sm mt-1">Generate your first analysis to see it here</p>
             </div>
           ) : (
-            history.map((item) => {
-              const parsed = item.analysis || null;
-              return (
-                <div key={item.id} className="bg-white dark:bg-gray-900 rounded-xl
-                  border border-gray-100 dark:border-gray-800 p-5">
-                  <p className="text-xs text-gray-400 mb-3">
-                    {new Date(item.createdAt).toLocaleDateString('en-NG', {
-                      day: 'numeric', month: 'long', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit',
-                    })}
-                  </p>
-                  {parsed && (
-                    <>
-                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-                        {parsed.summary}
-                      </p>
-                      {parsed.estimatedMonthlyRevenuePotential && (
-                        <span className="text-xs bg-brand-100 dark:bg-brand-900
-                          text-brand-700 dark:text-brand-300 font-semibold px-3 py-1 rounded-full">
-                          💰 {parsed.estimatedMonthlyRevenuePotential}
-                        </span>
-                      )}
-                    </>
-                  )}
+            <>
+              {history.map((item) => (
+                <HistoryItem key={item.id} item={item} />
+              ))}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-3 mt-4">
+                  <button
+                    onClick={() => loadHistory(currentPage - 1)}
+                    disabled={currentPage === 0}
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-200
+                      dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed
+                      hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  >
+                    ← Previous
+                  </button>
+                  <span className="text-sm text-gray-500">
+                    Page {currentPage + 1} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => loadHistory(currentPage + 1)}
+                    disabled={currentPage >= totalPages - 1}
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-200
+                      dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed
+                      hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  >
+                    Next →
+                  </button>
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
       )}
