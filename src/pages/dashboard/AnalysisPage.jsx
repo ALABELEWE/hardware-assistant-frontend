@@ -21,32 +21,34 @@ function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss 
         animate={{ opacity: 1, y: 0,   scale: 1     }}
         exit={{    opacity: 0, y: -12, scale: 0.98  }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className={`relative rounded-2xl border p-5 mb-5
-          ${isBanned
+        className={`relative rounded-2xl border p-5 mb-5 ${
+          isBanned
             ? 'bg-red-950/60 border-red-700 shadow-lg shadow-red-900/30'
-            : 'bg-amber-950/50 border-amber-600 shadow-lg shadow-amber-900/20'}`}
+            : 'bg-amber-950/50 border-amber-600 shadow-lg shadow-amber-900/20'
+        }`}
       >
         <div className="flex items-start gap-4">
-          <div className={`shrink-0 rounded-xl p-2.5
-            ${isBanned ? 'bg-red-700/40' : 'bg-amber-600/30'}`}>
+
+          {/* Icon */}
+          <div className={`shrink-0 rounded-xl p-2.5 ${isBanned ? 'bg-red-700/40' : 'bg-amber-600/30'}`}>
             {isBanned
               ? <Ban         className="w-6 h-6 text-red-400" />
               : <ShieldAlert className="w-6 h-6 text-amber-400" />
             }
           </div>
 
+          {/* Content */}
           <div className="flex-1 min-w-0">
-            <p className={`font-bold text-sm mb-1
-              ${isBanned ? 'text-red-300' : 'text-amber-300'}`}>
+            <p className={`font-bold text-sm mb-1 ${isBanned ? 'text-red-300' : 'text-amber-300'}`}>
               {isBanned
-                ? '🚫 Account Suspended'
-                : `⚠️ Security Warning — Attempt ${attemptCount} of 3`}
+                ? '\uD83D\uDEAB Account Suspended'
+                : `\u26A0\uFE0F Security Warning \u2014 Attempt ${attemptCount} of 3`}
             </p>
-            <p className={`text-sm leading-relaxed
-              ${isBanned ? 'text-red-400' : 'text-amber-400/90'}`}>
+            <p className={`text-sm leading-relaxed ${isBanned ? 'text-red-400' : 'text-amber-400/90'}`}>
               {message}
             </p>
 
+            {/* Attempt progress bar — warnings only */}
             {isWarning && (
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-1">
@@ -58,31 +60,31 @@ function SecurityWarningBanner({ incidentType, attemptCount, message, onDismiss 
                     initial={{ width: 0 }}
                     animate={{ width: `${(attemptCount / 3) * 100}%` }}
                     transition={{ duration: 0.6, ease: 'easeOut' }}
-                    className={`h-full rounded-full
-                      ${attemptCount >= 2 ? 'bg-red-500' : 'bg-amber-500'}`}
+                    className={`h-full rounded-full ${attemptCount >= 2 ? 'bg-red-500' : 'bg-amber-500'}`}
                   />
                 </div>
                 <p className="text-xs text-amber-600/70 mt-1.5">
-                  {3 - attemptCount} more violation{3 - attemptCount !== 1 ? 's' : ''} will
-                  result in account suspension.
+                  {3 - attemptCount} more violation{3 - attemptCount !== 1 ? 's' : ''} will result in account suspension.
                 </p>
               </div>
             )}
 
+            {/* Ban: contact support */}
             {isBanned && (
               <p className="text-xs text-red-500/80 mt-2">
-                Contact{' '}
-                
+                {'Contact '}
+                <a
                   href="mailto:support@hardwareai.org"
                   className="text-red-400 underline hover:text-red-300 transition"
                 >
                   support@hardwareai.org
                 </a>
-                {' '}if you believe this is a mistake.
+                {' if you believe this is a mistake.'}
               </p>
             )}
           </div>
 
+          {/* Dismiss — warnings only */}
           {isWarning && onDismiss && (
             <button
               onClick={onDismiss}
@@ -125,10 +127,9 @@ function InsightCard({ title, items, color }) {
 function AnalysisResult({ data }) {
   return (
     <div className="flex flex-col gap-4 mt-6">
-      <div className="bg-white dark:bg-gray-900 rounded-xl border
-        border-gray-100 dark:border-gray-800 p-6">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-6">
         <h3 className="font-semibold text-gray-800 dark:text-white mb-2">
-          📋 Business Summary
+          {'📋 Business Summary'}
         </h3>
         <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
           {data.summary}
@@ -137,7 +138,7 @@ function AnalysisResult({ data }) {
 
       <div className="bg-gradient-to-r from-brand-500 to-brand-600 rounded-xl p-6 text-white">
         <p className="text-orange-200 text-sm font-medium mb-1">
-          💰 Estimated Monthly Revenue Potential
+          {'💰 Estimated Monthly Revenue Potential'}
         </p>
         <p className="text-3xl font-bold">
           {data.estimatedMonthlyRevenuePotential || 'Not estimated'}
@@ -145,21 +146,18 @@ function AnalysisResult({ data }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <InsightCard title="✅ Strengths"  items={data.strengths}  color="green" />
-        <InsightCard title="⚠️ Weaknesses" items={data.weaknesses} color="red"   />
+        <InsightCard title="✅ Strengths"        items={data.strengths}  color="green" />
+        <InsightCard title={'\u26A0\uFE0F Weaknesses'} items={data.weaknesses} color="red" />
       </div>
 
-      <div className="bg-white dark:bg-gray-900 rounded-xl border
-        border-gray-100 dark:border-gray-800 p-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
         <h3 className="font-semibold text-gray-800 dark:text-white mb-3">
-          🎯 Recommendations
+          {'🎯 Recommendations'}
         </h3>
         <ol className="flex flex-col gap-2">
           {data.recommendations?.map((rec, i) => (
             <li key={i} className="flex gap-3 text-sm text-gray-700 dark:text-gray-300">
-              <span className="bg-brand-100 dark:bg-brand-900 text-brand-700
-                dark:text-brand-300 font-bold rounded-full w-6 h-6 flex items-center
-                justify-center shrink-0 text-xs">
+              <span className="bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 text-xs">
                 {i + 1}
               </span>
               {rec}
@@ -170,7 +168,7 @@ function AnalysisResult({ data }) {
 
       {data.marketOpportunities?.length > 0 && (
         <InsightCard
-          title="🚀 Market Opportunities"
+          title={'🚀 Market Opportunities'}
           items={data.marketOpportunities}
           color="yellow"
         />
@@ -179,7 +177,7 @@ function AnalysisResult({ data }) {
       {data.smsAlert && (
         <div className="bg-gray-800 dark:bg-gray-950 rounded-xl p-5 text-white">
           <p className="text-gray-400 text-xs mb-2 font-medium uppercase tracking-wide">
-            📱 SMS Alert Preview
+            {'📱 SMS Alert Preview'}
           </p>
           <p className="text-sm leading-relaxed">{data.smsAlert}</p>
         </div>
@@ -191,9 +189,8 @@ function AnalysisResult({ data }) {
 // ── Rate Limit Banner ─────────────────────────────────────────────────────────
 function RateLimitBanner({ message, retryAfterMinutes }) {
   return (
-    <div className="flex items-start gap-4 bg-amber-50 dark:bg-amber-950 border
-      border-amber-200 dark:border-amber-800 rounded-xl p-5 mb-4">
-      <span className="text-2xl shrink-0">⏳</span>
+    <div className="flex items-start gap-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl p-5 mb-4">
+      <span className="text-2xl shrink-0">{'⏳'}</span>
       <div>
         <p className="font-semibold text-amber-800 dark:text-amber-200 text-sm">
           Rate limit reached
@@ -203,7 +200,7 @@ function RateLimitBanner({ message, retryAfterMinutes }) {
         </p>
         {retryAfterMinutes > 0 && (
           <p className="text-amber-600 dark:text-amber-400 text-xs mt-2 font-medium">
-            🕐 Try again in {retryAfterMinutes} minute{retryAfterMinutes !== 1 ? 's' : ''}
+            {'Try again in '}{retryAfterMinutes}{' minute'}{retryAfterMinutes !== 1 ? 's' : ''}
           </p>
         )}
       </div>
@@ -259,8 +256,7 @@ function HistoryItem({ item }) {
   const analysis = item.analysis || null;
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl border
-      border-gray-100 dark:border-gray-800 p-5">
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-xs text-gray-400 mb-2">
@@ -275,9 +271,8 @@ function HistoryItem({ item }) {
                 {analysis.summary}
               </p>
               {analysis.estimatedMonthlyRevenuePotential && (
-                <span className="text-xs bg-brand-100 dark:bg-brand-900
-                  text-brand-700 dark:text-brand-300 font-semibold px-3 py-1 rounded-full">
-                  💰 {analysis.estimatedMonthlyRevenuePotential}
+                <span className="text-xs bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 font-semibold px-3 py-1 rounded-full">
+                  {'💰 '}{analysis.estimatedMonthlyRevenuePotential}
                 </span>
               )}
             </>
@@ -286,10 +281,9 @@ function HistoryItem({ item }) {
         {analysis && (
           <button
             onClick={() => setExpanded(e => !e)}
-            className="shrink-0 text-xs text-brand-500 hover:text-brand-600
-              font-medium transition mt-1"
+            className="shrink-0 text-xs text-brand-500 hover:text-brand-600 font-medium transition mt-1"
           >
-            {expanded ? 'Hide ▲' : 'View ▼'}
+            {expanded ? 'Hide' : 'View'}
           </button>
         )}
       </div>
@@ -320,7 +314,6 @@ export default function AnalysisPage() {
     try {
       const res = await analysisApi.getHistory(page);
       const pageData = res.data.data;
-      // Each item in content has { id, createdAt, analysis: {...} }
       setHistory(pageData.content || []);
       setTotalPages(pageData.totalPages || 1);
       setCurrentPage(pageData.number || 0);
@@ -340,12 +333,11 @@ export default function AnalysisPage() {
     try {
       const res = await analysisApi.generate(sendSms);
 
-      // Response structure: { data: { content: [{ analysis, createdAt, id }], ... } }
+      // Response: { data: { content: [{ analysis, createdAt, id }], ... } }
       const content = res.data?.data?.content;
       if (content && content.length > 0) {
         setAnalysis(content[0].analysis);
       } else {
-        // Fallback: try direct data.analysis path
         setAnalysis(res.data?.data?.analysis || null);
       }
 
@@ -364,13 +356,13 @@ export default function AnalysisPage() {
       } else {
         setError(classified);
         if (classified.type === 'rate_limit') {
-          toast(`⏳ ${classified.message}`, 'error');
+          toast(classified.message, 'error');
         } else if (classified.type === 'profile') {
-          toast('📝 Complete your profile first', 'error');
+          toast('Complete your profile first', 'error');
         } else if (classified.type === 'forbidden') {
-          toast('📧 Please verify your email first', 'error');
+          toast('Please verify your email first', 'error');
         } else if (classified.type === 'auth') {
-          toast('🔒 Session expired. Please log in again.', 'error');
+          toast('Session expired. Please log in again.', 'error');
         } else {
           toast(classified.message, 'error');
         }
@@ -403,12 +395,13 @@ export default function AnalysisPage() {
               setActiveTab(tab);
               if (tab === 'history') loadHistory(0);
             }}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition capitalize
-              ${activeTab === tab
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition capitalize ${
+              activeTab === tab
                 ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-800 dark:text-white'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
           >
-            {tab === 'generate' ? '🤖 Generate' : '📂 History'}
+            {tab === 'generate' ? 'Generate' : 'History'}
           </button>
         ))}
       </div>
@@ -416,8 +409,7 @@ export default function AnalysisPage() {
       {/* ── Generate Tab ── */}
       {activeTab === 'generate' && (
         <div>
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border
-            border-gray-100 dark:border-gray-800 p-6">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-6">
             <h2 className="font-semibold text-gray-800 dark:text-white mb-1">
               Generate New Analysis
             </h2>
@@ -441,10 +433,8 @@ export default function AnalysisPage() {
                     checked={sendSms}
                     onChange={(e) => setSendSms(e.target.checked)}
                   />
-                  <div className={`w-10 h-6 rounded-full transition
-                    ${sendSms ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white
-                    shadow transition-transform ${sendSms ? 'translate-x-4' : ''}`} />
+                  <div className={`w-10 h-6 rounded-full transition ${sendSms ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${sendSms ? 'translate-x-4' : ''}`} />
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -471,27 +461,26 @@ export default function AnalysisPage() {
                 size="lg"
                 fullWidth
               >
-                {loading ? '🤖 Analyzing your business...' : '🚀 Generate Analysis'}
+                {loading ? 'Analyzing your business...' : 'Generate Analysis'}
               </Button>
             )}
 
             {error?.type === 'profile' && (
               <p className="text-xs text-center text-gray-400 mt-3">
-                👉 Go to{' '}
+                {'Go to '}
                 <a href="/profile" className="text-brand-500 underline">Profile</a>
-                {' '}to complete your business details
+                {' to complete your business details'}
               </p>
             )}
             {error?.type === 'forbidden' && (
               <p className="text-xs text-center text-gray-400 mt-3">
-                👉 Check your inbox and click the verification link we sent you
+                Check your inbox and click the verification link we sent you
               </p>
             )}
             {error?.type === 'auth' && (
               <p className="text-xs text-center text-gray-400 mt-3">
-                👉{' '}
                 <a href="/login" className="text-brand-500 underline">Log in again</a>
-                {' '}to continue
+                {' to continue'}
               </p>
             )}
           </div>
@@ -506,7 +495,7 @@ export default function AnalysisPage() {
         <div className="flex flex-col gap-3">
           {history.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
-              <p className="text-4xl mb-3">📭</p>
+              <p className="text-4xl mb-3">{'📭'}</p>
               <p className="font-medium">No analyses yet</p>
               <p className="text-sm mt-1">Generate your first analysis to see it here</p>
             </div>
@@ -522,11 +511,9 @@ export default function AnalysisPage() {
                   <button
                     onClick={() => loadHistory(currentPage - 1)}
                     disabled={currentPage === 0}
-                    className="px-4 py-2 text-sm rounded-lg border border-gray-200
-                      dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed
-                      hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                   >
-                    ← Previous
+                    Previous
                   </button>
                   <span className="text-sm text-gray-500">
                     Page {currentPage + 1} of {totalPages}
@@ -534,11 +521,9 @@ export default function AnalysisPage() {
                   <button
                     onClick={() => loadHistory(currentPage + 1)}
                     disabled={currentPage >= totalPages - 1}
-                    className="px-4 py-2 text-sm rounded-lg border border-gray-200
-                      dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed
-                      hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                   >
-                    Next →
+                    Next
                   </button>
                 </div>
               )}
