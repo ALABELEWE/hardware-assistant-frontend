@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { analysisApi } from '../../api/analysis.api';
+import MetricsDashboard from '../../components/dashboard/MetricsDashboard';
 
 const container = {
   hidden: {},
@@ -184,6 +185,11 @@ export default function DashboardPage() {
             color="green"
           />
         </div>
+
+        {/* Metrics */}
+        <motion.div variants={item}>
+          <MetricsDashboard />
+        </motion.div>
 
         {/* Action Cards */}
         <div>
