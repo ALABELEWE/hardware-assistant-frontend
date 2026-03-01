@@ -7,11 +7,16 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import {
+  LayoutDashboard, User, Brain, ShieldCheck,
+  CreditCard, LogOut, Menu, X, Sun, Moon, Wrench, DatabaseZap
+} from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard',    label: 'Dashboard', icon: LayoutDashboard },
   { path: '/profile',      label: 'Profile',   icon: User            },
   { path: '/analysis',     label: 'Analysis',  icon: Brain           },
+  { path: '/data',         label: 'Data Entry', icon: DatabaseZap    },
   { path: '/subscription', label: 'Upgrade',   icon: CreditCard      },
 ];
 
