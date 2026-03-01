@@ -3,14 +3,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, User, Brain, ShieldCheck,
-  CreditCard, LogOut, Menu, X, Sun, Moon, Wrench
+  CreditCard, LogOut, Menu, X, Sun, Moon, Wrench, DatabaseZap
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import {
-  LayoutDashboard, User, Brain, ShieldCheck,
-  CreditCard, LogOut, Menu, X, Sun, Moon, Wrench, DatabaseZap
-} from 'lucide-react';
+
 
 const navItems = [
   { path: '/dashboard',    label: 'Dashboard', icon: LayoutDashboard },
