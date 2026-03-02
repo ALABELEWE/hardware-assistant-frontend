@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { analysisApi } from '../../api/analysis.api';
 import MetricsDashboard from '../../components/dashboard/MetricsDashboard';
 import FinanceScore from '../../components/dashboard/Financescore';
+import InventoryAlerts from '../../components/dashboard/InventoryAlerts';
 
 const container = {
   hidden: {},
@@ -194,6 +195,10 @@ export default function DashboardPage() {
 
         <motion.div variants={item}>
           <FinanceScore />
+        </motion.div>
+
+        <motion.div variants={item}>
+          <InventoryAlerts />
         </motion.div>
 
         {/* Action Cards */}
