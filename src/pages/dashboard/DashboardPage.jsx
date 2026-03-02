@@ -10,6 +10,7 @@ import { analysisApi } from '../../api/analysis.api';
 import MetricsDashboard from '../../components/dashboard/MetricsDashboard';
 import FinanceScore from '../../components/dashboard/Financescore';
 import InventoryAlerts from '../../components/dashboard/InventoryAlerts';
+import AINarrative from '../../components/dashboard/AINarrative';
 
 const container = {
   hidden: {},
@@ -199,6 +200,10 @@ export default function DashboardPage() {
 
         <motion.div variants={item}>
           <InventoryAlerts />
+        </motion.div>
+
+        <motion.div variants={item}>
+          <AINarrative />
         </motion.div>
 
         {/* Action Cards */}
